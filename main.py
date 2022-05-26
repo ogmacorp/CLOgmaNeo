@@ -15,7 +15,7 @@ with open('kernels/kernels.cl', 'r') as f:
 prog = cl.Program(ctx, kernels_src).build()
 
 enc = Encoder(cq, prog, (4, 4, 16), [ Encoder.VisibleLayerDesc(size=(4, 4, 16), radius=2) ])
-dec = Decoder(cq, prog, (4, 4, 16), [ Encoder.VisibleLayerDesc(size=(4, 4, 16), radius=2) ])
+dec = Decoder(cq, prog, (4, 4, 16), [ Decoder.VisibleLayerDesc(size=(4, 4, 16), radius=2) ])
 
 test_input = cl.array.Array(cq, (16,), dtype=np.int32)
 test_input.set(np.array([ i % 16 for i in range(16) ], dtype=np.int32))
