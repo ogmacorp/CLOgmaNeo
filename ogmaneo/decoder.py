@@ -48,7 +48,7 @@ class Decoder:
         self.decoder_learn_kernel = prog.decoder_learn
 
         # Hyperparameters
-        self.lr = 0.1
+        self.lr = 0.01
 
     def step(self, cq: cl.CommandQueue, visible_states: [ cl.array.Array ], target_hidden_states: cl.array.Array, learn_enabled: bool = True):
         # Pad 3-vecs to 4-vecs

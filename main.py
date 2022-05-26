@@ -19,7 +19,7 @@ test_input = cl.array.Array(cq, (1,), dtype=np.int32)
 
 h = Hierarchy(cq, prog, [ Hierarchy.IODesc((1, 1, 16), IOType.PREDICTION) ], 3 * [ Hierarchy.LayerDesc((4, 4, 16)) ])
 
-for t in range(100):
+for t in range(1000):
     index = t % 16
 
     test_input.set(np.array([ index ], dtype=np.int32))
