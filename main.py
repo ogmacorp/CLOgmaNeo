@@ -3,6 +3,7 @@ import pyopencl as cl
 import pyopencl.array
 from ogmaneo.encoder import Encoder
 from ogmaneo.decoder import Decoder
+from ogmaneo.hierarchy import Hierarchy
 
 ctx = cl.create_some_context()
 cq = cl.CommandQueue(ctx)
@@ -14,17 +15,17 @@ with open('kernels/kernels.cl', 'r') as f:
 
 prog = cl.Program(ctx, kernels_src).build()
 
-enc = Encoder(cq, prog, (4, 4, 16), [ Encoder.VisibleLayerDesc(size=(4, 4, 16), radius=2) ])
-dec = Decoder(cq, prog, (4, 4, 16), [ Decoder.VisibleLayerDesc(size=(4, 4, 16), radius=2) ])
+test_input = cl.array.Array(cq, (1,), dtype=np.int32)
 
-test_input = cl.array.Array(cq, (16,), dtype=np.int32)
-test_input.set(np.array([ i % 16 for i in range(16) ], dtype=np.int32))
+h = Hierarchy(cq, prog, [ Hierarchy.IODesc(size=(1, 1, 16), t=Hierarchy.IOType.PREDICTION) ], 3 * [ Hierarchy.LayerDesc(size=(4, 4, 16)) ])
 
-for i in range(100):
-    enc.step(cq, [ test_input ])
+for t in range(100):
+    index = t % 16
 
-    dec.step(cq, [ enc.hidden_states ], test_input)
+    test_input.set(np.array([ index ], dtype=np.int32))
 
-    print(dec.hidden_states.get())
+    h.step(cq, [ test_input ])
+
+    print("Current: " + str(index) + " Prediction: " + str(h.get_predicted_states(0).get()[0]))
 
 print("Done.")
