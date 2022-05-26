@@ -51,6 +51,9 @@ class Decoder:
         self.lr = 0.1
 
     def step(self, cq: cl.CommandQueue, visible_states: [ cl.array.Array ], target_hidden_states: cl.array.Array, learn_enabled: bool = True):
+        # Pad 3-vecs to 4-vecs
+        vec_hidden_size = np.array(list(self.hidden_size) + [ 0 ], dtype=np.int32)
+
         if learn_enabled:
             for i in range(len(self.vls)):
                 vld = self.vlds[i]
@@ -65,13 +68,10 @@ class Decoder:
                         vl.visible_states_prev.data, target_hidden_states.data, self.activations.data, vl.weights.data, 
                         vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
                         np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
-                        np.float32(lr))
+                        np.float32(self.lr))
 
         # Clear
         self.activations.fill(np.float32(0))
-
-        # Pad 3-vecs to 4-vecs
-        vec_hidden_size = np.array(list(self.hidden_size) + [ 0 ], dtype=np.int32)
 
         # Accumulate for all visible layers
         for i in range(len(self.vls)):
