@@ -48,7 +48,7 @@ class Decoder:
         self.decoder_learn_kernel = prog.decoder_learn
 
         # Hyperparameters
-        self.lr = 0.01
+        self.lr = 1.0
 
     def step(self, cq: cl.CommandQueue, visible_states: [ cl.array.Array ], target_hidden_states: cl.array.Array, learn_enabled: bool = True):
         # Pad 3-vecs to 4-vecs
@@ -89,7 +89,8 @@ class Decoder:
                     np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32))
 
         self.inhibit_activations_kernel(cq, (self.hidden_size[0], self.hidden_size[1]), None, self.activations.data, self.hidden_states.data,
-                vec_hidden_size)
+                vec_hidden_size,
+                np.float32(1.0 / len(self.vls)))
 
         # Copy to prevs
         for i in range(len(self.vls)):

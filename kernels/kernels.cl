@@ -24,6 +24,8 @@ __kernel void accum_activation(
     int2 iter_lower_bound = (int2)(max(0, field_lower_bound.x), max(0, field_lower_bound.y));
     int2 iter_upper_bound = (int2)(min(visible_size.x - 1, visible_center.x + radius), min(visible_size.y - 1, visible_center.y + radius));
 
+    int count = (iter_upper_bound.x - iter_lower_bound.x + 1) * (iter_upper_bound.y - iter_lower_bound.y + 1);
+
     // For all hidden cells
     for (int c = 0; c < hidden_size.z; c++) {
         int hidden_cell_index = c + hidden_size.z * hidden_column_index;
@@ -45,14 +47,17 @@ __kernel void accum_activation(
                 sum += weights[wi];
             }
 
+        sum /= count;
+
         activations[hidden_cell_index] += sum;
     }
 }
 
 __kernel void inhibit_activations(
-    __global const float* activations,
+    __global float* activations,
     __global int* states,
-    int3 size
+    int3 size,
+    float scale
 ) {
     int2 column_pos = (int2)(get_global_id(0), get_global_id(1));
     int column_index = column_pos.y + size.y * column_pos.x;
@@ -61,12 +66,16 @@ __kernel void inhibit_activations(
     float max_activation = -999999.0f;
 
     for (int c = 0; c < size.z; c++) {
-        float activation = activations[c + size.z * column_index];
+        int cell_index = c + size.z * column_index;
+
+        float activation = activations[cell_index];
 
         if (activation > max_activation) {
             max_activation = activation;
             max_index = c;
         }
+
+        activations[cell_index] *= scale;
     }
 
     states[column_index] = max_index;
