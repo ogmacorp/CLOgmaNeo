@@ -57,7 +57,7 @@ class Hierarchy:
                     if io_descs[j].t == IOType.PREDICTION:
                         d_vld = Decoder.VisibleLayerDesc(size=lds[i].hidden_size, radius=io_descs[j].d_radius)
 
-                        d_vlds = [ d_vld ] if i < len(lds) - 1 else 2 * [ d_vld ] # 1 visible layer if no higher layer, otherwise 2 (additional for feed-back)
+                        d_vlds = 2 * [ d_vld ] if i < len(lds) - 1 else [ d_vld ] # 1 visible layer if no higher layer, otherwise 2 (additional for feed-back)
 
                         io_decoders.append(Decoder(cq, prog, io_descs[j].size, d_vlds))
                     else:
@@ -82,7 +82,7 @@ class Hierarchy:
 
                 d_vld = Decoder.VisibleLayerDesc(size=lds[i].hidden_size, radius=lds[i].d_radius)
 
-                d_vlds = [ d_vld ] if i < len(lds) - 1 else 2 * [ d_vld ] # 1 visible layer if no higher layer, otherwise 2 (additional for feed-back)
+                d_vlds = 2 * [ d_vld ] if i < len(lds) - 1 else [ d_vld ] # 1 visible layer if no higher layer, otherwise 2 (additional for feed-back)
 
                 temporal_decoders = []
 
