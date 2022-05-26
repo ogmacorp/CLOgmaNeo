@@ -3,7 +3,7 @@ import pyopencl as cl
 import pyopencl.array
 from ogmaneo.encoder import Encoder
 from ogmaneo.decoder import Decoder
-from ogmaneo.hierarchy import Hierarchy
+from ogmaneo.hierarchy import Hierarchy, IOType
 
 ctx = cl.create_some_context()
 cq = cl.CommandQueue(ctx)
@@ -17,7 +17,7 @@ prog = cl.Program(ctx, kernels_src).build()
 
 test_input = cl.array.Array(cq, (1,), dtype=np.int32)
 
-h = Hierarchy(cq, prog, [ Hierarchy.IODesc(size=(1, 1, 16), t=Hierarchy.IOType.PREDICTION) ], 3 * [ Hierarchy.LayerDesc(size=(4, 4, 16)) ])
+h = Hierarchy(cq, prog, [ Hierarchy.IODesc((1, 1, 16), IOType.PREDICTION) ], 3 * [ Hierarchy.LayerDesc((4, 4, 16)) ])
 
 for t in range(100):
     index = t % 16

@@ -5,14 +5,14 @@ import pyopencl.clrandom
 import math
 from dataclasses import dataclass
 from enum import Enum
-from encoder import Encoder
-from decoder import Decoder
+from .encoder import Encoder
+from .decoder import Decoder
+
+class IOType(Enum):
+    NONE = 0
+    PREDICTION = 1
 
 class Hierarchy:
-    class IOType(Enum):
-        NONE = 0
-        PREDICTION = 1
-
     @dataclass
     class IODesc:
         size: (int, int, int) = (4, 4, 16)
@@ -52,12 +52,10 @@ class Hierarchy:
 
                     # For each timestep
                     for k in range(lds[i].temporal_horizon):
-                        temporal_history.append(cl.array.zeros(cq, (num_io_columns,), np.int32))
-
-                    io_history.append(temporal_history)
+                        io_history.append(cl.array.zeros(cq, (num_io_columns,), np.int32))
 
                     if io_descs[j].t == IOType.PREDICTION:
-                        d_vld = Decoder.VisibleLayerDesc(size=io_descs[j].size, radius=io_descs[j].d_radius)
+                        d_vld = Decoder.VisibleLayerDesc(size=lds[i].hidden_size, radius=io_descs[j].d_radius)
 
                         d_vlds = [ d_vld ] if i < len(lds) - 1 else 2 * [ d_vld ] # 1 visible layer if no higher layer, otherwise 2 (additional for feed-back)
 
@@ -78,9 +76,20 @@ class Hierarchy:
                 for j in range(lds[i].temporal_horizon):
                     temporal_history.append(cl.array.zeros(cq, (num_prev_columns,), np.int32))
 
-                layer_history.append([ temporal_history ])
+                layer_history.append(temporal_history)
 
                 e_vlds = lds[i].ticks_per_update * [ Encoder.VisibleLayerDesc(size=lds[i - 1].hidden_size, radius=lds[i].e_radius) ]
+
+                d_vld = Decoder.VisibleLayerDesc(size=lds[i].hidden_size, radius=lds[i].d_radius)
+
+                d_vlds = [ d_vld ] if i < len(lds) - 1 else 2 * [ d_vld ] # 1 visible layer if no higher layer, otherwise 2 (additional for feed-back)
+
+                temporal_decoders = []
+
+                for j in range(lds[i].ticks_per_update):
+                    temporal_decoders.append(Decoder(cq, prog, lds[i - 1].hidden_size, d_vlds))
+
+                self.decoders.append(temporal_decoders)
 
             self.encoders.append(Encoder(cq, prog, lds[i].hidden_size, e_vlds))
 
@@ -135,7 +144,7 @@ class Hierarchy:
 
                     cl.enqueue_copy(cq, back.data, self.encoders[i].hidden_states.data)
 
-                    self.histories[i_next][0].index(0, back)
+                    self.histories[i_next][0].insert(0, back)
 
                     self.ticks[i_next] += 1
 
@@ -149,6 +158,9 @@ class Hierarchy:
 
                 if i == 0:
                     for j in range(len(self.io_sizes)):
+                        if self.decoders[i][j] is None:
+                            continue
+
                         self.decoders[i][j].step(cq, decoder_visible_states, input_states[j], learn_enabled)
                 else:
                     for j in range(self.ticks_per_update[i]):
