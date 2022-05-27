@@ -68,14 +68,14 @@ __kernel void inhibit_activations(
     for (int c = 0; c < size.z; c++) {
         int cell_index = c + size.z * column_index;
 
+        activations[cell_index] *= scale;
+
         float activation = activations[cell_index];
 
         if (activation > max_activation) {
             max_activation = activation;
             max_index = c;
         }
-
-        activations[cell_index] *= scale;
     }
 
     states[column_index] = max_index;
