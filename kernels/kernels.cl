@@ -194,12 +194,10 @@ __kernel void encoder_learn(
 
     if (get_local_id(2) == 0) {
         for (int c = 0; c < visible_size.z; c++) {
-            int visible_cell_index = c + visible_size.z * visible_column_index;
+            float recon = reconstruction[c + visible_size.z * visible_column_index];
 
-            float sum = reconstruction[visible_cell_index];
-
-            if (sum > max_activation) {
-                max_activation = sum;
+            if (recon > max_activation) {
+                max_activation = recon;
                 max_index = c;
             }
         }
