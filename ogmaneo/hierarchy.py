@@ -107,9 +107,7 @@ class Hierarchy:
     def step(self, cq: cl.CommandQueue, input_states: [ cl.array.Array ], learn_enabled: bool = True):
         # Push into first layer history
         for i in range(len(self.io_sizes)):
-            back = self.histories[0][i][-1]
-
-            self.histories[0][i].pop()
+            back = self.histories[0][i].pop()
 
             cl.enqueue_copy(cq, back.data, input_states[i].data)
 
@@ -138,9 +136,7 @@ class Hierarchy:
                 if i < len(self.encoders) - 1:
                     i_next = i + 1
 
-                    back = self.histories[i_next][0][-1]
-
-                    self.histories[i_next][0].pop()
+                    back = self.histories[i_next][0].pop()
 
                     cl.enqueue_copy(cq, back.data, self.encoders[i].hidden_states.data)
 
