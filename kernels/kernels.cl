@@ -1,4 +1,4 @@
-float sigmoid(float x) {
+__inline float sigmoid(float x) {
     return tanh(x * 0.5f) * 0.5f + 0.5f;
 }
 
@@ -131,6 +131,7 @@ __kernel void encoder_learn(
     __local int max_index;
     __local float max_activation;
 
+    // Pre-compute for work group
     if (get_local_id(2) == 0) {
         visible_column_pos = (int2)(get_global_id(0), get_global_id(1));
         visible_column_index = visible_column_pos.y + visible_size.y * visible_column_pos.x;
@@ -261,6 +262,7 @@ __kernel void decoder_learn(
 
     __local int target_state;
 
+    // Pre-compute for work group
     if (get_local_id(2) == 0) {
         hidden_column_pos = (int2)(get_global_id(0), get_global_id(1));
         hidden_column_index = hidden_column_pos.y + hidden_size.y * hidden_column_pos.x;

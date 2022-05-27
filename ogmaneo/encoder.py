@@ -39,7 +39,7 @@ class Encoder:
             num_weights = num_hidden_cells * area * vld.size[2]
 
             vl.weights = cl.clrandom.rand(cq, (num_weights,), np.float32, a=0.0, b=1.0)
-            vl.reconstruction = cl.array.zeros(cq, (num_visible_cells,), np.float32)
+            vl.reconstruction = cl.array.empty(cq, (num_visible_cells,), np.float32)
 
         # Kernels
         self.accum_activation_kernel = prog.accum_activation
