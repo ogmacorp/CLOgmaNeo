@@ -38,7 +38,7 @@ class Encoder:
             area = diam * diam
             num_weights = num_hidden_cells * area * vld.size[2]
 
-            vl.weights = cl.clrandom.rand(cq, (num_weights,), np.float32, a=0.0, b=0.01)
+            vl.weights = cl.clrandom.rand(cq, (num_weights,), np.float32, a=0.0, b=1.0)
             vl.reconstruction = cl.array.zeros(cq, (num_visible_cells,), np.float32)
 
         # Kernels
@@ -50,6 +50,8 @@ class Encoder:
         self.lr = 0.1
 
     def step(self, cq: cl.CommandQueue, visible_states: [ cl.array.Array ], learn_enabled: bool = True):
+        assert(len(visible_states) == len(self.vls))
+
         # Clear
         self.activations.fill(np.float32(0))
 

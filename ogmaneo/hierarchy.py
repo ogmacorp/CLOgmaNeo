@@ -44,8 +44,6 @@ class Hierarchy:
 
                 # For each IO layer
                 for j in range(len(io_descs)):
-                    e_vlds.append(Encoder.VisibleLayerDesc(size=io_descs[j].size, radius=io_descs[j].e_radius))
-
                     num_io_columns = io_descs[j].size[0] * io_descs[j].size[1]
 
                     temporal_history = []
@@ -53,6 +51,8 @@ class Hierarchy:
                     # For each timestep
                     for k in range(lds[i].temporal_horizon):
                         io_history.append(cl.array.zeros(cq, (num_io_columns,), np.int32))
+
+                        e_vlds.append(Encoder.VisibleLayerDesc(size=io_descs[j].size, radius=io_descs[j].e_radius))
 
                     if io_descs[j].t == IOType.PREDICTION:
                         d_vld = Decoder.VisibleLayerDesc(size=lds[i].hidden_size, radius=io_descs[j].d_radius)

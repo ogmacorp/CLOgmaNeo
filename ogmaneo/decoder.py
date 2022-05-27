@@ -51,6 +51,8 @@ class Decoder:
         self.lr = 1.0
 
     def step(self, cq: cl.CommandQueue, visible_states: [ cl.array.Array ], target_hidden_states: cl.array.Array, learn_enabled: bool = True):
+        assert(len(visible_states) == len(self.vls))
+
         # Pad 3-vecs to 4-vecs
         vec_hidden_size = np.array(list(self.hidden_size) + [ 0 ], dtype=np.int32)
 
