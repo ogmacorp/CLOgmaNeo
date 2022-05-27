@@ -78,7 +78,7 @@ class Hierarchy:
 
                 layer_history.append(temporal_history)
 
-                e_vlds = lds[i].ticks_per_update * [ Encoder.VisibleLayerDesc(size=lds[i - 1].hidden_size, radius=lds[i].e_radius) ]
+                e_vlds = lds[i].temporal_horizon * [ Encoder.VisibleLayerDesc(size=lds[i - 1].hidden_size, radius=lds[i].e_radius) ]
 
                 d_vld = Decoder.VisibleLayerDesc(size=lds[i].hidden_size, radius=lds[i].d_radius)
 
