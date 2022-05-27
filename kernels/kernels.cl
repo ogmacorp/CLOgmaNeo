@@ -12,45 +12,64 @@ __kernel void accum_activation(
     int diam,
     float2 hToV
 ) {
-    int2 hidden_column_pos = (int2)(get_global_id(0), get_global_id(1));
-    int hidden_column_index = hidden_column_pos.y + hidden_size.y * hidden_column_pos.x;
+    __local int2 hidden_column_pos;
+    __local int hidden_column_index;
 
     // Project
-    int2 visible_center = (int2)((hidden_column_pos.x + 0.5f) * hToV.x, (hidden_column_pos.y + 0.5f) * hToV.y);
+    __local int2 visible_center;
 
     // Bounds
-    int2 field_lower_bound = visible_center - radius;
+    __local int2 field_lower_bound;
     
-    int2 iter_lower_bound = (int2)(max(0, field_lower_bound.x), max(0, field_lower_bound.y));
-    int2 iter_upper_bound = (int2)(min(visible_size.x - 1, visible_center.x + radius), min(visible_size.y - 1, visible_center.y + radius));
+    __local int2 iter_lower_bound;
+    __local int2 iter_upper_bound;
 
-    int count = (iter_upper_bound.x - iter_lower_bound.x + 1) * (iter_upper_bound.y - iter_lower_bound.y + 1);
+    __local int count;
 
-    // For all hidden cells
-    for (int c = 0; c < hidden_size.z; c++) {
-        int hidden_cell_index = c + hidden_size.z * hidden_column_index;
+    // Pre-compute for work group
+    if (get_local_id(2) == 0) {
+        hidden_column_pos = (int2)(get_global_id(0), get_global_id(1));
+        hidden_column_index = hidden_column_pos.y + hidden_size.y * hidden_column_pos.x;
 
-        float sum = 0.0f;
+        // Project
+        visible_center = (int2)((hidden_column_pos.x + 0.5f) * hToV.x, (hidden_column_pos.y + 0.5f) * hToV.y);
 
-        for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
-            for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
-                int2 visible_column_pos = (int2)(ix, iy);
+        // Bounds
+        field_lower_bound = visible_center - radius;
+        
+        iter_lower_bound = (int2)(max(0, field_lower_bound.x), max(0, field_lower_bound.y));
+        iter_upper_bound = (int2)(min(visible_size.x - 1, visible_center.x + radius), min(visible_size.y - 1, visible_center.y + radius));
 
-                int visible_column_index = iy + visible_size.y * ix;
-
-                int2 offset = visible_column_pos - field_lower_bound;
-
-                int visible_state = visible_states[visible_column_index];
-
-                int wi = visible_state + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_cell_index));
-
-                sum += weights[wi];
-            }
-
-        sum /= count;
-
-        activations[hidden_cell_index] += sum;
+        count = (iter_upper_bound.x - iter_lower_bound.x + 1) * (iter_upper_bound.y - iter_lower_bound.y + 1);
     }
+
+    // Synchronize
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    int lc = get_global_id(2);
+
+    int hidden_cell_index = lc + hidden_size.z * hidden_column_index;
+
+    float sum = 0.0f;
+
+    for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
+        for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
+            int2 visible_column_pos = (int2)(ix, iy);
+
+            int visible_column_index = iy + visible_size.y * ix;
+
+            int2 offset = visible_column_pos - field_lower_bound;
+
+            int visible_state = visible_states[visible_column_index];
+
+            int wi = visible_state + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_cell_index));
+
+            sum += weights[wi];
+        }
+
+    sum /= count;
+
+    activations[hidden_cell_index] += sum;
 }
 
 __kernel void inhibit_activations(
@@ -95,28 +114,98 @@ __kernel void encoder_learn(
     float2 vToH,
     float lr
 ) {
-    int2 visible_column_pos = (int2)(get_global_id(0), get_global_id(1));
-    int visible_column_index = visible_column_pos.y + visible_size.y * visible_column_pos.x;
+    __local int2 visible_column_pos;
+    __local int visible_column_index;
 
-    int target_state = visible_states[visible_column_index];
+    __local int target_state;
 
     // Project
-    int2 hidden_center = (int2)((visible_column_pos.x + 0.5f) * vToH.x, (visible_column_pos.y + 0.5f) * vToH.y);
+    __local int2 hidden_center;
 
     // Bounds
-    int2 field_lower_bound = hidden_center - reverse_radii;
+    __local int2 field_lower_bound;
     
-    int2 iter_lower_bound = (int2)(max(0, field_lower_bound.x), max(0, field_lower_bound.y));
-    int2 iter_upper_bound = (int2)(min(hidden_size.x - 1, hidden_center.x + reverse_radii.x), min(hidden_size.y - 1, hidden_center.y + reverse_radii.y));
+    __local int2 iter_lower_bound;
+    __local int2 iter_upper_bound;
 
-    int max_index = 0;
-    float max_activation = -999999.0f;
+    __local int max_index;
+    __local float max_activation;
 
-    for (int c = 0; c < visible_size.z; c++) {
-        int visible_cell_index = c + visible_size.z * visible_column_index;
+    if (get_local_id(2) == 0) {
+        visible_column_pos = (int2)(get_global_id(0), get_global_id(1));
+        visible_column_index = visible_column_pos.y + visible_size.y * visible_column_pos.x;
 
-        float sum = 0.0f;
-        int count = 0;
+        target_state = visible_states[visible_column_index];
+
+        // Project
+        hidden_center = (int2)((visible_column_pos.x + 0.5f) * vToH.x, (visible_column_pos.y + 0.5f) * vToH.y);
+
+        // Bounds
+        field_lower_bound = hidden_center - reverse_radii;
+        
+        iter_lower_bound = (int2)(max(0, field_lower_bound.x), max(0, field_lower_bound.y));
+        iter_upper_bound = (int2)(min(hidden_size.x - 1, hidden_center.x + reverse_radii.x), min(hidden_size.y - 1, hidden_center.y + reverse_radii.y));
+
+        max_index = 0;
+        max_activation = -999999.0f;
+    }
+
+    // Synchronize
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    int lc = get_global_id(2);
+
+    int visible_cell_index = lc + visible_size.z * visible_column_index;
+
+    float sum = 0.0f;
+    int count = 0;
+
+    for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
+        for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
+            int2 hidden_column_pos = (int2)(ix, iy);
+
+            int hidden_column_index = iy + hidden_size.y * ix;
+
+            int hidden_cell_index = hidden_states[hidden_column_index] + hidden_size.z * hidden_column_index;
+
+            // Project
+            int2 visible_center = (int2)((hidden_column_pos.x + 0.5f) * hToV.x, (hidden_column_pos.y + 0.5f) * hToV.y);
+
+            // Bounds check
+            if (visible_column_pos.x >= visible_center.x - radius && visible_column_pos.x <= visible_center.x + radius &&
+                visible_column_pos.y >= visible_center.y - radius && visible_column_pos.y <= visible_center.y + radius)
+            {
+                int2 offset = (int2)(visible_column_pos.x - visible_center.x + radius, visible_column_pos.y - visible_center.y + radius);
+
+                int wi = lc + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_cell_index));
+
+                sum += weights[wi];
+                count++;
+            }
+        }
+
+    sum /= max(1, count);
+
+    reconstruction[visible_cell_index] = sum;
+
+    if (get_local_id(2) == 0) {
+        for (int c = 0; c < visible_size.z; c++) {
+            int visible_cell_index = c + visible_size.z * visible_column_index;
+
+            float sum = reconstruction[visible_cell_index];
+
+            if (sum > max_activation) {
+                max_activation = sum;
+                max_index = c;
+            }
+        }
+    }
+
+    // Synchronize
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    if (max_index != target_state) {
+        float delta = lr * ((lc == target_state) - sigmoid(reconstruction[visible_cell_index]));
 
         for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
             for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
@@ -135,52 +224,11 @@ __kernel void encoder_learn(
                 {
                     int2 offset = (int2)(visible_column_pos.x - visible_center.x + radius, visible_column_pos.y - visible_center.y + radius);
 
-                    int wi = c + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_cell_index));
+                    int wi = lc + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_cell_index));
 
-                    sum += weights[wi];
-                    count++;
+                    weights[wi] += delta;
                 }
             }
-
-        sum /= max(1, count);
-
-        reconstruction[visible_cell_index] = sum;
-
-        if (sum > max_activation) {
-            max_activation = sum;
-            max_index = c;
-        }
-    }
-
-    if (max_index != target_state) {
-        for (int c = 0; c < visible_size.z; c++) {
-            int visible_cell_index = c + visible_size.z * visible_column_index;
-
-            float delta = lr * ((c == target_state) - sigmoid(reconstruction[visible_cell_index]));
-
-            for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
-                for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
-                    int2 hidden_column_pos = (int2)(ix, iy);
-
-                    int hidden_column_index = iy + hidden_size.y * ix;
-
-                    int hidden_cell_index = hidden_states[hidden_column_index] + hidden_size.z * hidden_column_index;
-
-                    // Project
-                    int2 visible_center = (int2)((hidden_column_pos.x + 0.5f) * hToV.x, (hidden_column_pos.y + 0.5f) * hToV.y);
-
-                    // Bounds check
-                    if (visible_column_pos.x >= visible_center.x - radius && visible_column_pos.x <= visible_center.x + radius &&
-                        visible_column_pos.y >= visible_center.y - radius && visible_column_pos.y <= visible_center.y + radius)
-                    {
-                        int2 offset = (int2)(visible_column_pos.x - visible_center.x + radius, visible_column_pos.y - visible_center.y + radius);
-
-                        int wi = c + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_cell_index));
-
-                        weights[wi] += delta;
-                    }
-                }
-        }
     }
 }
 
@@ -196,39 +244,58 @@ __kernel void decoder_learn(
     float2 hToV,
     float lr
 ) {
-    int2 hidden_column_pos = (int2)(get_global_id(0), get_global_id(1));
-    int hidden_column_index = hidden_column_pos.y + hidden_size.y * hidden_column_pos.x;
+    __local int2 hidden_column_pos;
+    __local int hidden_column_index;
 
     // Project
-    int2 visible_center = (int2)((hidden_column_pos.x + 0.5f) * hToV.x, (hidden_column_pos.y + 0.5f) * hToV.y);
+    __local int2 visible_center;
 
     // Bounds
-    int2 field_lower_bound = visible_center - radius;
+    __local int2 field_lower_bound;
     
-    int2 iter_lower_bound = (int2)(max(0, field_lower_bound.x), max(0, field_lower_bound.y));
-    int2 iter_upper_bound = (int2)(min(visible_size.x - 1, visible_center.x + radius), min(visible_size.y - 1, visible_center.y + radius));
+    __local int2 iter_lower_bound;
+    __local int2 iter_upper_bound;
 
-    int target_state = target_hidden_states[hidden_column_index];
+    __local int target_state;
+
+    if (get_local_id(2) == 0) {
+        hidden_column_pos = (int2)(get_global_id(0), get_global_id(1));
+        hidden_column_index = hidden_column_pos.y + hidden_size.y * hidden_column_pos.x;
+
+        // Project
+        visible_center = (int2)((hidden_column_pos.x + 0.5f) * hToV.x, (hidden_column_pos.y + 0.5f) * hToV.y);
+
+        // Bounds
+        field_lower_bound = visible_center - radius;
+        
+        iter_lower_bound = (int2)(max(0, field_lower_bound.x), max(0, field_lower_bound.y));
+        iter_upper_bound = (int2)(min(visible_size.x - 1, visible_center.x + radius), min(visible_size.y - 1, visible_center.y + radius));
+
+        target_state = target_hidden_states[hidden_column_index];
+    }
+
+    // Synchronize
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    int lc = get_global_id(2);
 
     // For all hidden cells
-    for (int c = 0; c < hidden_size.z; c++) {
-        int hidden_cell_index = c + hidden_size.z * hidden_column_index;
+    int hidden_cell_index = lc + hidden_size.z * hidden_column_index;
 
-        float delta = lr * ((c == target_state) - sigmoid(activations[hidden_cell_index]));
+    float delta = lr * ((lc == target_state) - sigmoid(activations[hidden_cell_index]));
 
-        for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
-            for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
-                int2 visible_column_pos = (int2)(ix, iy);
+    for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
+        for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
+            int2 visible_column_pos = (int2)(ix, iy);
 
-                int visible_column_index = iy + visible_size.y * ix;
+            int visible_column_index = iy + visible_size.y * ix;
 
-                int2 offset = visible_column_pos - field_lower_bound;
+            int2 offset = visible_column_pos - field_lower_bound;
 
-                int visible_state = visible_states[visible_column_index];
+            int visible_state = visible_states[visible_column_index];
 
-                int wi = visible_state + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_cell_index));
+            int wi = visible_state + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_cell_index));
 
-                weights[wi] += delta;
-            }
-    }
+            weights[wi] += delta;
+        }
 }

@@ -68,7 +68,7 @@ class Encoder:
             # Pad 3-vecs to 4-vecs
             vec_visible_size = np.array(list(vld.size) + [ 0 ], dtype=np.int32)
 
-            self.accum_activation_kernel(cq, (self.hidden_size[0], self.hidden_size[1]), None,
+            self.accum_activation_kernel(cq, self.hidden_size, (1, 1, self.hidden_size[2]),
                     visible_states[i].data, vl.weights.data, self.activations.data,
                     vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
                     np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32))
@@ -87,7 +87,7 @@ class Encoder:
                 # Pad 3-vecs to 4-vecs
                 vec_visible_size = np.array(list(vld.size) + [ 0 ], dtype=np.int32)
 
-                self.encoder_learn_kernel(cq, (vld.size[0], vld.size[1]), None,
+                self.encoder_learn_kernel(cq, vld.size, (1, 1, vld.size[2]),
                         visible_states[i].data, self.hidden_states.data, vl.weights.data, vl.reconstruction.data,
                         vec_visible_size, vec_hidden_size, np.int32(vld.radius),
                         np.array([ math.ceil(diam * self.hidden_size[0] / vld.size[0] * 0.5), math.ceil(diam * self.hidden_size[1] / vld.size[1] * 0.5) ], np.int32),

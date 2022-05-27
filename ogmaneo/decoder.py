@@ -66,7 +66,7 @@ class Decoder:
                 # Pad 3-vecs to 4-vecs
                 vec_visible_size = np.array(list(vld.size) + [ 0 ], dtype=np.int32)
 
-                self.decoder_learn_kernel(cq, (self.hidden_size[0], self.hidden_size[1]), None,
+                self.decoder_learn_kernel(cq, self.hidden_size, (1, 1, self.hidden_size[2]),
                         vl.visible_states_prev.data, target_hidden_states.data, self.activations.data, vl.weights.data, 
                         vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
                         np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
@@ -85,7 +85,7 @@ class Decoder:
             # Pad 3-vecs to 4-vecs
             vec_visible_size = np.array(list(vld.size) + [ 0 ], dtype=np.int32)
 
-            self.accum_activation_kernel(cq, (self.hidden_size[0], self.hidden_size[1]), None,
+            self.accum_activation_kernel(cq, self.hidden_size, (1, 1, self.hidden_size[2]),
                     visible_states[i].data, vl.weights.data, self.activations.data,
                     vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
                     np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32))
