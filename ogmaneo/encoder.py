@@ -4,6 +4,7 @@ import pyopencl.array
 import pyopencl.clrandom
 import math
 from dataclasses import dataclass
+import h5py
 
 class Encoder:
     @dataclass
@@ -15,41 +16,77 @@ class Encoder:
         weights: cl.array.Array
         reconstruction: cl.array.Array
 
-    def __init__(self, cq: cl.CommandQueue, prog: cl.Program, hidden_size: (int, int, int), vlds: [ VisibleLayerDesc ]):
-        self.hidden_size = hidden_size
+    def __init__(self, cq: cl.CommandQueue, prog: cl.Program, hidden_size: (int, int, int) = (4, 4, 16), vlds: [ VisibleLayerDesc ] = [], grp: h5py.Group = None):
+        if grp is None:
+            self.hidden_size = hidden_size
 
-        num_hidden_columns = hidden_size[0] * hidden_size[1]
-        num_hidden_cells = num_hidden_columns * hidden_size[2]
+            num_hidden_columns = hidden_size[0] * hidden_size[1]
+            num_hidden_cells = num_hidden_columns * hidden_size[2]
 
-        self.activations = cl.array.empty(cq, (num_hidden_cells,), np.float32)
-        self.hidden_states = cl.array.zeros(cq, (num_hidden_columns,), np.int32)
+            self.activations = cl.array.empty(cq, (num_hidden_cells,), np.float32)
+            self.hidden_states = cl.array.zeros(cq, (num_hidden_columns,), np.int32)
 
-        self.vlds = vlds
-        self.vls = []
+            self.vlds = vlds
+            self.vls = []
 
-        for i in range(len(vlds)):
-            vld = self.vlds[i]
-            vl = self.VisibleLayer()
+            for i in range(len(vlds)):
+                vld = self.vlds[i]
+                vl = self.VisibleLayer()
 
-            num_visible_columns = vld.size[0] * vld.size[1]
-            num_visible_cells = num_visible_columns * vld.size[2]
+                num_visible_columns = vld.size[0] * vld.size[1]
+                num_visible_cells = num_visible_columns * vld.size[2]
 
-            diam = vld.radius * 2 + 1
-            area = diam * diam
-            num_weights = num_hidden_cells * area * vld.size[2]
+                diam = vld.radius * 2 + 1
+                area = diam * diam
+                num_weights = num_hidden_cells * area * vld.size[2]
 
-            vl.weights = cl.clrandom.rand(cq, (num_weights,), np.float32, a=0.0, b=1.0)
-            vl.reconstruction = cl.array.empty(cq, (num_visible_cells,), np.float32)
+                vl.weights = cl.clrandom.rand(cq, (num_weights,), np.float32, a=0.0, b=1.0)
+                vl.reconstruction = cl.array.empty(cq, (num_visible_cells,), np.float32)
 
-            self.vls.append(vl)
+                self.vls.append(vl)
+
+            # Hyperparameters
+            self.lr = 0.1
+
+        else: # Load from h5py group
+            self.hidden_size = grp.attrs['hidden_size']
+            
+            num_hidden_columns = hidden_size[0] * hidden_size[1]
+            num_hidden_cells = num_hidden_columns * hidden_size[2]
+
+            self.activations = cl.array.empty(cq, (num_hidden_cells,), np.float32)
+            self.hidden_states = cl.array.empty(cq, (num_hidden_columns,), np.int32)
+
+            self.hidden_states.set(grp['hidden_states'])
+            
+            self.vlds = grp.attrs['vlds']
+            self.vls = []
+
+            for i in range(len(self.vlds)):
+                vld = self.vlds[i]
+                vl = self.VisibleLayer()
+
+                num_visible_columns = vld.size[0] * vld.size[1]
+                num_visible_cells = num_visible_columns * vld.size[2]
+
+                diam = vld.radius * 2 + 1
+                area = diam * diam
+                num_weights = num_hidden_cells * area * vld.size[2]
+
+                vl.weights = cl.array.empty(cq, (num_weights,), np.float32)
+                vl.reconstruction = cl.array.empty(cq, (num_visible_cells,), np.float32)
+
+                vl.weights.set(grp['weights' + str(i)])
+
+                self.vls.append(vl)
+
+            # Hyperparameters
+            self.lr = grp.attrs['lr']
 
         # Kernels
         self.accum_activations_kernel = prog.accum_activation
         self.inhibit_activations_kernel = prog.inhibit_activations
         self.encoder_learn_kernel = prog.encoder_learn
-
-        # Hyperparameters
-        self.lr = 0.1
 
     def step(self, cq: cl.CommandQueue, visible_states: [ cl.array.Array ], learn_enabled: bool = True):
         assert(len(visible_states) == len(self.vls))
@@ -98,3 +135,17 @@ class Encoder:
                         np.array([ self.hidden_size[0] / vld.size[0], self.hidden_size[1] / vld.size[1] ], dtype=np.float32),
                         np.float32(self.lr))
 
+    def write(self, grp: h5py.Group):
+        grp.attrs['hidden_size'] = hidden_size
+
+        grp.create_dataset('hidden_states', data=self.hidden_states.get())
+
+        grp.attrs['vlds'] = self.vlds
+
+        for i in range(len(self.vls)):
+            grp.create_dataset('weights' + str(i), data=self.vls[i].weights.get())
+
+        grp.attrs['lr'] = self.lr
+
+
+        
