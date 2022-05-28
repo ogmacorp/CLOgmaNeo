@@ -5,6 +5,7 @@ import pyopencl.clrandom
 import math
 from dataclasses import dataclass
 import h5py
+import pickle
 
 class Decoder:
     @dataclass
@@ -49,7 +50,7 @@ class Decoder:
             self.lr = 1.0
 
         else: # Load from h5py group
-            self.hidden_size = grp.attrs['hidden_size']
+            self.hidden_size = pickle.loads(grp.attrs['hidden_size'].tobytes())
 
             self.activations = cl.array.empty(cq, (num_hidden_cells,), np.float32)
             self.hidden_states = cl.array.empty(cq, (num_hidden_columns,), np.int32)
@@ -57,7 +58,7 @@ class Decoder:
             self.activations.set(grp['activations'])
             self.hidden_states.set(grp['hidden_states'])
             
-            self.vlds = grp.attrs['vlds']
+            self.vlds = pickle.loads(grp.attrs['vlds'].tobytes())
             self.vls = []
 
             for i in range(len(vlds)):
@@ -79,7 +80,7 @@ class Decoder:
 
                 self.vls.append(vl)
 
-            self.lr = grp.attrs['lr']
+            self.lr = pickle.loads(grp.attrs['lr'].tobytes())
 
         # Kernels
         self.accum_activations_kernel = prog.accum_activation
@@ -138,15 +139,15 @@ class Decoder:
             cl.enqueue_copy(cq, vl.visible_states_prev.data, visible_states[i].data)
 
     def write(self, grp: h5py.Group):
-        grp.attrs['hidden_size'] = hidden_size
+        grp.attrs['hidden_size'] = np.void(pickle.dumps(self.hidden_size))
 
         grp.create_dataset('activations', data=self.activations.get())
         grp.create_dataset('hidden_states', data=self.hidden_states.get())
 
-        grp.attrs['vlds'] = self.vlds
+        grp.attrs['vlds'] = np.void(pickle.dumps(self.vlds))
 
         for i in range(len(self.vls)):
             grp.create_dataset('weights' + str(i), data=self.vls[i].weights.get())
             grp.create_dataset('visible_states_prev' + str(i), data=self.vls[i].visible_states_prev.get())
 
-        grp.attrs['lr'] = self.lr
+        grp.attrs['lr'] = np.void(pickle.dumps(self.lr))

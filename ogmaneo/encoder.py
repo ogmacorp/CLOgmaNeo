@@ -5,6 +5,7 @@ import pyopencl.clrandom
 import math
 from dataclasses import dataclass
 import h5py
+import pickle
 
 class Encoder:
     @dataclass
@@ -49,7 +50,7 @@ class Encoder:
             self.lr = 0.1
 
         else: # Load from h5py group
-            self.hidden_size = grp.attrs['hidden_size']
+            self.hidden_size = pickle.loads(grp.attrs['hidden_size'].tobytes())
             
             num_hidden_columns = hidden_size[0] * hidden_size[1]
             num_hidden_cells = num_hidden_columns * hidden_size[2]
@@ -59,7 +60,7 @@ class Encoder:
 
             self.hidden_states.set(grp['hidden_states'])
             
-            self.vlds = grp.attrs['vlds']
+            self.vlds = pickle.loads(grp.attrs['vlds'].tobytes())
             self.vls = []
 
             for i in range(len(self.vlds)):
@@ -81,7 +82,7 @@ class Encoder:
                 self.vls.append(vl)
 
             # Hyperparameters
-            self.lr = grp.attrs['lr']
+            self.lr = pickle.loads(grp.attrs['lr'].tobytes())
 
         # Kernels
         self.accum_activations_kernel = prog.accum_activation
@@ -136,16 +137,16 @@ class Encoder:
                         np.float32(self.lr))
 
     def write(self, grp: h5py.Group):
-        grp.attrs['hidden_size'] = hidden_size
+        grp.attrs['hidden_size'] = np.void(pickle.dumps(self.hidden_size))
 
         grp.create_dataset('hidden_states', data=self.hidden_states.get())
 
-        grp.attrs['vlds'] = self.vlds
+        grp.attrs['vlds'] = np.void(pickle.dumps(self.vlds))
 
         for i in range(len(self.vls)):
             grp.create_dataset('weights' + str(i), data=self.vls[i].weights.get())
 
-        grp.attrs['lr'] = self.lr
+        grp.attrs['lr'] = np.void(pickle.dumps(self.lr))
 
 
         

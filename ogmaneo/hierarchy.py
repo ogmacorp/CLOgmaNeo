@@ -8,6 +8,7 @@ from enum import Enum
 from .encoder import Encoder
 from .decoder import Decoder
 import h5py
+import pickle
 
 class IOType(Enum):
     NONE = 0
@@ -106,8 +107,8 @@ class Hierarchy:
             self.updates = len(lds) * [ False ]
 
         else: # Load from h5py group
-            self.io_descs = grp.attrs['io_descs']
-            self.lds = grp.attrs['lds']
+            self.io_descs = pickle.loads(grp.attrs['io_descs'].tobytes())
+            self.lds = pickle.loads(grp.attrs['lds'].tobytes())
 
             self.encoders = []
             self.decoders = []
@@ -165,10 +166,10 @@ class Hierarchy:
 
                 self.histories.append(io_history)
 
-            self.ticks = grp.attrs['ticks']
-            self.ticks_per_update = grp.attrs['ticks_per_update']
+            self.ticks = pickle.loads(grp.attrs['ticks'].tobytes())
+            self.ticks_per_update = pickle.loads(grp.attrs['ticks_per_update'].tobytes())
 
-            self.updates = grp.attrs['updates']
+            self.updates = pickle.loads(grp.attrs['updates'].tobytes())
 
     def step(self, cq: cl.CommandQueue, input_states: [ cl.array.Array ], learn_enabled: bool = True):
         # Push into first layer history
@@ -234,8 +235,8 @@ class Hierarchy:
         return self.decoders[0][i].hidden_states
 
     def write(self, grp: h5py.Group):
-        grp.attrs['io_descs'] = self.io_descs
-        grp.attrs['lds'] = self.lds
+        grp.attrs['io_descs'] = np.void(pickle.dumps(self.io_descs))
+        grp.attrs['lds'] = np.void(pickle.dumps(self.lds))
 
         for i in range(len(self.lds)):
             for j in range(len(self.histories[i])):
@@ -243,11 +244,13 @@ class Hierarchy:
                     grp.create_dataset('histories' + str(i) + '_' + str(j) + '_' + str(k), data=self.histories[i][j][k].get())
 
             for j in range(len(self.decoders[i])):
+                grp.create_group('decoders' + str(i) + '_' + str(j))
                 self.decoders[i][j].write(grp['decoders' + str(i) + '_' + str(j)])
 
+            grp.create_group('encoders' + str(i))
             self.encoders[i].write(grp['encoders' + str(i)])
             
-        grp.attrs['ticks'] = self.ticks
-        grp.attrs['ticks_per_update'] = self.ticks_per_update
+        grp.attrs['ticks'] = np.void(pickle.dumps(self.ticks))
+        grp.attrs['ticks_per_update'] = np.void(pickle.dumps(self.ticks_per_update))
 
-        gro.updates['updates'] = self.updates
+        grp.attrs['updates'] = np.void(pickle.dumps(self.updates))
