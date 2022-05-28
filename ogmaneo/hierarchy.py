@@ -115,26 +115,26 @@ class Hierarchy:
             self.histories = []
 
             # Create layers
-            for i in range(len(lds)):
+            for i in range(len(self.lds)):
                 io_history = []
 
                 if i == 0: # First layer
                     io_decoders = []
 
                     # For each IO layer
-                    for j in range(len(io_descs)):
-                        num_io_columns = io_descs[j].size[0] * io_descs[j].size[1]
+                    for j in range(len(self.io_descs)):
+                        num_io_columns = self.io_descs[j].size[0] * self.io_descs[j].size[1]
 
                         temporal_history = []
 
                         # For each timestep
-                        for k in range(lds[i].temporal_horizon):
+                        for k in range(self.lds[i].temporal_horizon):
                             temporal_history.append(cl.array.empty(cq, (num_io_columns,), np.int32))
-                            temporal_history[-1].set(grp['histories' + str(i) + '_' + str(j) + '_' + str(k)])
+                            temporal_history[-1].set(np.array(grp['histories' + str(i) + '_' + str(j) + '_' + str(k)][:], np.int32))
 
                         io_history.append(temporal_history)
 
-                        if io_descs[j].t == IOType.PREDICTION:
+                        if self.io_descs[j].t == IOType.PREDICTION:
                             io_decoders.append(Decoder(cq, prog, grp=grp['decoders' + str(i) + '_' + str(j)]))
                         else:
                             io_decoders.append(None) # Mark no decoder
@@ -144,21 +144,19 @@ class Hierarchy:
                 else: # Higher layers
                     temporal_history = []
 
-                    num_prev_columns = lds[i - 1].hidden_size[0] * lds[i - 1].hidden_size[1]
+                    num_prev_columns = self.lds[i - 1].hidden_size[0] * self.lds[i - 1].hidden_size[1]
 
                     # For each timestep
-                    for j in range(lds[i].temporal_horizon):
+                    for j in range(self.lds[i].temporal_horizon):
                         temporal_history.append(cl.array.empty(cq, (num_prev_columns,), np.int32))
-                        temporal_history[-1].set(grp['histories' + str(i) + '_0_' + str(j)])
+                        temporal_history[-1].set(np.array(grp['histories' + str(i) + '_0_' + str(j)][:], np.int32))
 
                     io_history.append(temporal_history)
 
-                    d_vlds = 2 * [ d_vld ] if i < len(lds) - 1 else [ d_vld ] # 1 visible layer if no higher layer, otherwise 2 (additional for feed-back)
-
                     temporal_decoders = []
 
-                    for j in range(lds[i].ticks_per_update):
-                        temporal_decoders.append(Decoder(cq, prog, lds[i - 1].hidden_size, d_vlds))
+                    for j in range(self.lds[i].ticks_per_update):
+                        temporal_decoders.append(Decoder(cq, prog, grp=grp['decoders' + str(i) + '_' + str(j)]))
 
                     self.decoders.append(temporal_decoders)
 

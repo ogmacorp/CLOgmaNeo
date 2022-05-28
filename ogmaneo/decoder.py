@@ -52,16 +52,19 @@ class Decoder:
         else: # Load from h5py group
             self.hidden_size = pickle.loads(grp.attrs['hidden_size'].tobytes())
 
+            num_hidden_columns = self.hidden_size[0] * self.hidden_size[1]
+            num_hidden_cells = num_hidden_columns * self.hidden_size[2]
+
             self.activations = cl.array.empty(cq, (num_hidden_cells,), np.float32)
             self.hidden_states = cl.array.empty(cq, (num_hidden_columns,), np.int32)
 
-            self.activations.set(grp['activations'])
-            self.hidden_states.set(grp['hidden_states'])
+            self.activations.set(np.array(grp['activations'][:], np.float32))
+            self.hidden_states.set(np.array(grp['hidden_states'][:], np.int32))
             
             self.vlds = pickle.loads(grp.attrs['vlds'].tobytes())
             self.vls = []
 
-            for i in range(len(vlds)):
+            for i in range(len(self.vlds)):
                 vld = self.vlds[i]
                 vl = self.VisibleLayer()
 
@@ -75,8 +78,8 @@ class Decoder:
                 vl.weights = cl.array.empty(cq, (num_weights,), np.float32)
                 vl.visible_states_prev = cl.array.empty(cq, (num_visible_columns,), np.int32)
 
-                vl.weights.set(grp['weights' + str(i)])
-                vl.visible_states_prev.set(grp['visible_states_prev' + str(i)])
+                vl.weights.set(np.array(grp['weights' + str(i)][:], np.float32))
+                vl.visible_states_prev.set(np.array(grp['visible_states_prev' + str(i)][:], np.int32))
 
                 self.vls.append(vl)
 
