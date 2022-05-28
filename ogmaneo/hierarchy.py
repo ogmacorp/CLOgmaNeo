@@ -36,10 +36,9 @@ class Hierarchy:
         # Create layers
         for i in range(len(lds)):
             e_vlds = []
-            layer_history = []
+            io_history = []
 
             if i == 0: # First layer
-                io_history = []
                 io_decoders = []
 
                 # For each IO layer
@@ -50,9 +49,11 @@ class Hierarchy:
 
                     # For each timestep
                     for k in range(lds[i].temporal_horizon):
-                        io_history.append(cl.array.zeros(cq, (num_io_columns,), np.int32))
+                        temporal_history.append(cl.array.zeros(cq, (num_io_columns,), np.int32))
 
                         e_vlds.append(Encoder.VisibleLayerDesc(size=io_descs[j].size, radius=io_descs[j].e_radius))
+
+                    io_history.append(temporal_history)
 
                     if io_descs[j].t == IOType.PREDICTION:
                         d_vld = Decoder.VisibleLayerDesc(size=lds[i].hidden_size, radius=io_descs[j].d_radius)
@@ -63,8 +64,6 @@ class Hierarchy:
                     else:
                         io_decoders.append(None) # Mark no decoder
 
-                layer_history.append(io_history)
-                
                 self.decoders.append(io_decoders)
 
             else: # Higher layers
@@ -76,7 +75,7 @@ class Hierarchy:
                 for j in range(lds[i].temporal_horizon):
                     temporal_history.append(cl.array.zeros(cq, (num_prev_columns,), np.int32))
 
-                layer_history.append(temporal_history)
+                io_history.append(temporal_history)
 
                 e_vlds = lds[i].temporal_horizon * [ Encoder.VisibleLayerDesc(size=lds[i - 1].hidden_size, radius=lds[i].e_radius) ]
 
@@ -93,7 +92,7 @@ class Hierarchy:
 
             self.encoders.append(Encoder(cq, prog, lds[i].hidden_size, e_vlds))
 
-            self.histories.append(layer_history)
+            self.histories.append(io_history)
 
         self.ticks = len(lds) * [ 0 ]
         self.ticks_per_update = [ lds[i].ticks_per_update for i in range(len(lds)) ]
