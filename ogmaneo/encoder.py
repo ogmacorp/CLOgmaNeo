@@ -25,11 +25,11 @@ class Encoder:
         self.hidden_states = cl.array.zeros(cq, (num_hidden_columns,), np.int32)
 
         self.vlds = vlds
-        self.vls = len(vlds) * [ self.VisibleLayer() ]
+        self.vls = []
 
         for i in range(len(vlds)):
             vld = self.vlds[i]
-            vl = self.vls[i]
+            vl = self.VisibleLayer()
 
             num_visible_columns = vld.size[0] * vld.size[1]
             num_visible_cells = num_visible_columns * vld.size[2]
@@ -40,6 +40,8 @@ class Encoder:
 
             vl.weights = cl.clrandom.rand(cq, (num_weights,), np.float32, a=0.0, b=1.0)
             vl.reconstruction = cl.array.empty(cq, (num_visible_cells,), np.float32)
+
+            self.vls.append(vl)
 
         # Kernels
         self.accum_activation_kernel = prog.accum_activation
