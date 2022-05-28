@@ -10,7 +10,7 @@ cq = cl.CommandQueue(ctx)
 
 kernels_src = ''
 
-with open('kernels/kernels.cl', 'r') as f:
+with open('kernels/core.cl', 'r') as f:
     kernels_src = f.read()
 
 prog = cl.Program(ctx, kernels_src).build()

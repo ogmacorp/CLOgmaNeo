@@ -45,7 +45,7 @@ class Decoder:
             self.vls.append(vl)
 
         # Kernels
-        self.accum_activation_kernel = prog.accum_activation
+        self.accum_activations_kernel = prog.accum_activation
         self.inhibit_activations_kernel = prog.inhibit_activations
         self.decoder_learn_kernel = prog.decoder_learn
 
@@ -87,7 +87,7 @@ class Decoder:
             # Pad 3-vecs to 4-vecs
             vec_visible_size = np.array(list(vld.size) + [ 0 ], dtype=np.int32)
 
-            self.accum_activation_kernel(cq, self.hidden_size, (1, 1, self.hidden_size[2]),
+            self.accum_activations_kernel(cq, self.hidden_size, (1, 1, self.hidden_size[2]),
                     visible_states[i].data, vl.weights.data, self.activations.data,
                     vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
                     np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32))
