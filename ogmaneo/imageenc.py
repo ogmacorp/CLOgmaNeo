@@ -51,6 +51,7 @@ class ImageEnc:
         self.inhibit_activations_kernel = prog.inhibit_activations
         self.image_enc_learn_kernel = prog_extra.image_enc_learn
         self.image_enc_decay_kernel = prog_extra.image_enc_decay
+        self.image_enc_reconstruct_kernel = prog_extra.image_enc_reconstruct
 
         # Hyperparameters
         self.lr = 0.01
@@ -111,6 +112,9 @@ class ImageEnc:
         if len(indices) == 0: # Empty means all indices
             indices = [ i for i in range(len(self.vls)) ]
 
+        # Pad 3-vecs to 4-vecs
+        vec_hidden_size = np.array(list(self.hidden_size) + [ 0 ], dtype=np.int32)
+
         for i in indices:
             vld = self.vlds[i]
             vl = self.vls[i]
@@ -120,8 +124,8 @@ class ImageEnc:
             # Pad 3-vecs to 4-vecs
             vec_visible_size = np.array(list(vld.size) + [ 0 ], dtype=np.int32)
 
-            self.image_enc_reconstruct(cq, vld.size, (1, 1, vld.size[2]),
-                    self.hidden_states.data, vl.weights.data, vl.reconstruction.data,
+            self.image_enc_reconstruct_kernel(cq, vld.size, (1, 1, vld.size[2]),
+                    hidden_states.data, vl.weights.data, vl.reconstruction.data,
                     vec_visible_size, vec_hidden_size, np.int32(vld.radius),
                     np.array([ math.ceil(diam * self.hidden_size[0] / vld.size[0] * 0.5), math.ceil(diam * self.hidden_size[1] / vld.size[1] * 0.5) ], np.int32),
                     np.int32(diam),

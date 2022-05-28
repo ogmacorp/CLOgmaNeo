@@ -180,8 +180,6 @@ __kernel void image_enc_reconstruct(
     __local int2 visible_column_pos;
     __local int visible_column_index;
 
-    __local int target_state;
-
     // Project
     __local int2 hidden_center;
 
@@ -198,8 +196,6 @@ __kernel void image_enc_reconstruct(
     if (get_local_id(2) == 0) {
         visible_column_pos = (int2)(get_global_id(0), get_global_id(1));
         visible_column_index = visible_column_pos.y + visible_size.y * visible_column_pos.x;
-
-        target_state = visible_states[visible_column_index];
 
         // Project
         hidden_center = (int2)((visible_column_pos.x + 0.5f) * vToH.x, (visible_column_pos.y + 0.5f) * vToH.y);
