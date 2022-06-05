@@ -39,11 +39,13 @@ class Hierarchy:
             self.decoders = []
             self.histories = []
             self.complete_states = []
+            self.target_states = []
 
             # Create layers
             for i in range(len(lds)):
                 e_vlds = []
                 io_history = []
+                io_targets = []
 
                 if i == 0: # First layer
                     io_decoders = []
@@ -64,7 +66,11 @@ class Hierarchy:
                         else:
                             io_decoders.append(None) # Mark no decoder
 
+                        io_targets.append(cl.array.empty((num_io_columns,), dtype=np.int32))
+
                     self.decoders.append(io_decoders)
+
+                    self.target_states.append(io_targets)
 
                 else: # Higher layers
                     temporal_history = []
@@ -84,12 +90,14 @@ class Hierarchy:
 
                     self.decoders.append(temporal_decoders)
 
+                    self.target_states.append([ cl.array.empty((num_prev_columns,), dtype=np.int32) ])
+
                 self.encoders.append(Encoder(cq, prog, lds[i].hidden_size, e_vlds))
 
                 self.histories.append(io_history)
 
                 if i < len(lds) - 1:
-                    self.complete_states.append(cl.array.empty(cq, (self.lds[i].hidden_size[0] * self.lds[i].hidden_size[1] * 2), dtype=np.int32))
+                    self.complete_states.append(cl.array.empty(cq, (self.lds[i].hidden_size[0] * self.lds[i].hidden_size[1] * 2,), dtype=np.int32))
 
             self.ticks = len(lds) * [ 0 ]
             self.ticks_per_update = [ lds[i].ticks_per_update for i in range(len(lds)) ]
@@ -111,6 +119,7 @@ class Hierarchy:
             # Create layers
             for i in range(len(self.lds)):
                 io_history = []
+                io_targets = []
 
                 if i == 0: # First layer
                     io_decoders = []
@@ -128,7 +137,11 @@ class Hierarchy:
                         else:
                             io_decoders.append(None) # Mark no decoder
 
+                        io_targets.append(cl.array.empty((num_io_columns,), dtype=np.int32))
+
                     self.decoders.append(io_decoders)
+
+                    self.target_states.append(io_targets)
 
                 else: # Higher layers
                     num_prev_columns = self.lds[i - 1].hidden_size[0] * self.lds[i - 1].hidden_size[1]
@@ -143,12 +156,14 @@ class Hierarchy:
 
                     self.decoders.append(temporal_decoders)
 
+                    self.target_states.append([ cl.array.empty((num_prev_columns,), dtype=np.int32) ])
+
                 self.encoders.append(Encoder(cq, prog, grp=grp['encoders' + str(i)]))
 
                 self.histories.append(io_history)
 
                 if i < len(lds) - 1:
-                    self.complete_states.append(cl.array.empty(cq, (self.lds[i].hidden_size[0] * self.lds[i].hidden_size[1] * 2), dtype=np.int32))
+                    self.complete_states.append(cl.array.empty(cq, (self.lds[i].hidden_size[0] * self.lds[i].hidden_size[1] * 2,), dtype=np.int32))
 
             self.ticks = pickle.loads(grp.attrs['ticks'].tobytes())
             self.ticks_per_update = pickle.loads(grp.attrs['ticks_per_update'].tobytes())
@@ -203,12 +218,15 @@ class Hierarchy:
         for i in range(len(self.decoders) - 1, -1, -1):
             if self.updates[i]:
                 # Copy
-                self.complete_states[i][: len(self.encoders[i].hidden_states)] = self.encoders[i].hidden_states
+                decoder_visible_states = []
 
                 if i < len(self.lds) - 1:
+                    self.complete_states[i][: len(self.encoders[i].hidden_states)] = self.encoders[i].hidden_states
                     self.complete_states[i][len(self.encoders[i].hidden_states) :] = self.decoders[i + 1][self.ticks_per_update[i + 1] - 1 - self.ticks[i + 1]].hidden_states
 
-                decoder_visible_states = [ self.complete_states[i] ]
+                    decoder_visible_states = [ self.complete_states[i] ]
+                else:
+                    decoder_visible_states = [ self.encoders[i].hidden_states ]
 
                 if i == 0:
                     for j in range(len(self.io_descs)):
