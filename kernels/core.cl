@@ -73,7 +73,7 @@ __kernel void accum_activation(
 
                 int visible_state = visible_states[visible_column_index + num_visible_columns * slice];
 
-                int wi = slice + visible_size.w * (visible_state + wi_start);
+                int wi = t + visible_size.w * (visible_state + wi_start);
 
                 sum += weights[wi];
             }
@@ -195,7 +195,7 @@ __kernel void encoder_learn(
             {
                 int2 offset = (int2)(visible_column_pos.x - visible_center.x + radius, visible_column_pos.y - visible_center.y + radius);
 
-                int wi = (history_pos + t) * visible_size.w + visible_size.w * (gc + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_cell_index)));
+                int wi = t + visible_size.w * (gc + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_cell_index)));
 
                 sum += weights[wi];
                 count++;
@@ -241,7 +241,7 @@ __kernel void encoder_learn(
                 {
                     int2 offset = (int2)(visible_column_pos.x - visible_center.x + radius, visible_column_pos.y - visible_center.y + radius);
 
-                    int wi = (history_pos + t) % visible_size.w + visible_size.w * (gc + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_cell_index)));
+                    int wi = t + visible_size.w * (gc + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_cell_index)));
 
                     weights[wi] += delta;
                 }
@@ -321,7 +321,7 @@ __kernel void decoder_learn(
 
                 int visible_state = visible_states[visible_column_index + num_visible_columns * slice];
 
-                int wi = slice + visible_size.w * (visible_state + wi_start);
+                int wi = t + visible_size.w * (visible_state + wi_start);
 
                 weights[wi] += delta;
             }
