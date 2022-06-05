@@ -219,11 +219,11 @@ class Hierarchy:
                         if self.decoders[i][j] is None:
                             continue
 
-                        self.decoders[i][j].step(cq, decoder_visible_states, input_states[j], 0, self.history_pos[i], learn_enabled)
+                        self.decoders[i][j].step(cq, decoder_visible_states, input_states[j], 0, self.history_pos[i], self.lds[i].temporal_horizon, learn_enabled)
                 else:
                     num_prev_columns = self.lds[i - 1].hidden_size[0] * self.lds[i - 1].hidden_size[1]
 
-                    self.decoders[i][j].step(cq, decoder_visible_states, self.histories[i][0], 0, self.history_pos[i], learn_enabled)
+                    self.decoders[i][0].step(cq, decoder_visible_states, self.histories[i][0], 0, self.history_pos[i], self.lds[i].temporal_horizon, learn_enabled)
 
     def get_predicted_states(self, i) -> cl.array.Array:
         assert(self.decoders[0][i] is not None)

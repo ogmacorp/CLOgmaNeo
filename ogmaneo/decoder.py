@@ -90,7 +90,7 @@ class Decoder:
         self.inhibit_activations_kernel = prog.inhibit_activations
         self.decoder_learn_kernel = prog.decoder_learn
 
-    def step(self, cq: cl.CommandQueue, visible_states: [ cl.array.Array ], target_hidden_states: cl.array.Array, history_pos: int, target_pos: int, learn_enabled: bool = True):
+    def step(self, cq: cl.CommandQueue, visible_states: [ cl.array.Array ], target_hidden_states: cl.array.Array, history_pos: int, target_pos: int, target_temporal_horizon: int, learn_enabled: bool = True):
         assert(len(visible_states) == len(self.vls))
 
         # Pad 3-vecs to 4-vecs
@@ -110,7 +110,7 @@ class Decoder:
                         vl.visible_states_prev.data, target_hidden_states.data, self.activations.data, vl.weights.data, 
                         vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
                         np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
-                        np.int32(history_pos), np.int32(target_pos),
+                        np.int32(history_pos), np.int32(target_pos), np.int32(target_temporal_horizon),
                         np.float32(self.lr))
 
         # Clear
