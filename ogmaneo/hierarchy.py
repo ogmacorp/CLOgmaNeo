@@ -39,7 +39,6 @@ class Hierarchy:
             self.decoders = []
             self.histories = []
             self.complete_states = []
-            self.target_states = []
 
             # Create layers
             for i in range(len(lds)):
@@ -67,8 +66,6 @@ class Hierarchy:
 
                     self.decoders.append(io_decoders)
 
-                    self.target_states.append([]) # First layer doesn't need these temporaries
-
                 else: # Higher layers
                     temporal_history = []
 
@@ -83,8 +80,6 @@ class Hierarchy:
                     temporal_decoders = [ Decoder(cq, prog, (lds[i - 1].hidden_size[0], lds[i - 1].hidden_size[1], lds[i - 1].hidden_size[2], lds[i].ticks_per_update), [ d_vld ]) ]
 
                     self.decoders.append(temporal_decoders)
-
-                    self.target_states.append([ cl.array.empty(cq, (num_prev_columns,), dtype=np.int32) for _ in range(lds[i].ticks_per_update) ])
 
                 self.encoders.append(Encoder(cq, prog, lds[i].hidden_size, e_vlds))
 
@@ -132,8 +127,6 @@ class Hierarchy:
 
                     self.decoders.append(io_decoders)
 
-                    self.target_states.append([]) # First layer doesn't need these temporaries
-
                 else: # Higher layers
                     num_prev_columns = self.lds[i - 1].hidden_size[0] * self.lds[i - 1].hidden_size[1]
 
@@ -146,8 +139,6 @@ class Hierarchy:
                         temporal_decoders.append(Decoder(cq, prog, grp=grp['decoders' + str(i) + '_' + str(j)]))
 
                     self.decoders.append(temporal_decoders)
-
-                    self.target_states.append([ cl.array.empty(cq, (num_prev_columns,), dtype=np.int32) for _ in range(lds[i].ticks_per_update) ])
 
                 self.encoders.append(Encoder(cq, prog, grp=grp['encoders' + str(i)]))
 
@@ -228,15 +219,11 @@ class Hierarchy:
                         if self.decoders[i][j] is None:
                             continue
 
-                        self.decoders[i][j].step(cq, decoder_visible_states, input_states[j], self.history_pos[i], learn_enabled)
+                        self.decoders[i][j].step(cq, decoder_visible_states, input_states[j], 0, self.history_pos[i], learn_enabled)
                 else:
-                    for j in range(self.ticks_per_update[i]):
-                        num_prev_columns = self.lds[i - 1].hidden_size[0] * self.lds[i - 1].hidden_size[1]
+                    num_prev_columns = self.lds[i - 1].hidden_size[0] * self.lds[i - 1].hidden_size[1]
 
-                        # Copy to target states
-                        self.target_states[i][j][:] = self.histories[i][0][num_prev_columns * ((self.history_pos[i] + j) % self.lds[i].temporal_horizon) : num_prev_columns * ((self.history_pos[i] + j) % self.lds[i].temporal_horizon + 1)][:]
-
-                        self.decoders[i][j].step(cq, decoder_visible_states, self.target_states[i][j], self.history_pos[i], learn_enabled)
+                    self.decoders[i][j].step(cq, decoder_visible_states, self.histories[i][0], 0, self.history_pos[i], learn_enabled)
 
     def get_predicted_states(self, i) -> cl.array.Array:
         assert(self.decoders[0][i] is not None)

@@ -262,6 +262,7 @@ __kernel void decoder_learn(
     int diam,
     float2 hToV,
     int history_pos,
+    int target_pos,
     float lr
 ) {
     __local int2 hidden_column_pos;
@@ -276,8 +277,6 @@ __kernel void decoder_learn(
     __local int2 iter_lower_bound;
     __local int2 iter_upper_bound;
 
-    __local int target_state;
-    
     __local int num_visible_columns;
 
     // Pre-compute for work group
@@ -294,17 +293,18 @@ __kernel void decoder_learn(
         iter_lower_bound = (int2)(max(0, field_lower_bound.x), max(0, field_lower_bound.y));
         iter_upper_bound = (int2)(min(visible_size.x - 1, visible_center.x + radius), min(visible_size.y - 1, visible_center.y + radius));
 
-        target_state = target_hidden_states[hidden_column_index];
-
         num_visible_columns = visible_size.x * visible_size.y;
     }
 
     barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 
-    int gc = get_global_id(2);
+    int gc = get_global_id(2) % hidden_size.w;
+    int t_target = get_global_id(2) / hidden_size.w;
+
+    int target_state = target_hidden_states[(history_pos + t_target) % visible_size.w + visible_size.w * hidden_column_index];
 
     // For all hidden cells
-    int hidden_cell_index = gc + hidden_size.z * hidden_column_index;
+    int hidden_cell_index = (history_pos + t_target) % visible_size.w + visible_size.w * (gc + hidden_size.z * hidden_column_index);
 
     float delta = lr * ((gc == target_state) - sigmoid(activations[hidden_cell_index]));
 
