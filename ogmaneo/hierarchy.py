@@ -51,22 +51,16 @@ class Hierarchy:
                     for j in range(len(io_descs)):
                         num_io_columns = io_descs[j].size[0] * io_descs[j].size[1]
 
-                        temporal_history = []
-
                         # For each timestep
                         for k in range(lds[i].temporal_horizon):
-                            temporal_history.append(cl.array.zeros(cq, (num_io_columns,), np.int32))
-
                             e_vlds.append(Encoder.VisibleLayerDesc(size=io_descs[j].size, radius=io_descs[j].e_radius))
 
-                        io_history.append(temporal_history)
+                        io_history.append(cl.array.zeros(cq, (num_io_columns * io_descs[j].temporal_horizon,), np.int32))
 
                         if io_descs[j].t == IOType.PREDICTION:
-                            d_vld = Decoder.VisibleLayerDesc(size=lds[i].hidden_size, radius=io_descs[j].d_radius)
+                            d_vld = Decoder.VisibleLayerDesc(size=(lds[i].hidden_size[0], lds[i].hidden_size[1], lds[i].hidden_size[2], 2 if i < len(lds) else 1), radius=io_descs[j].d_radius)
 
-                            d_vlds = 2 * [ d_vld ] if i < len(lds) - 1 else [ d_vld ] # 1 visible layer if no higher layer, otherwise 2 (additional for feed-back)
-
-                            io_decoders.append(Decoder(cq, prog, io_descs[j].size, d_vlds))
+                            io_decoders.append(Decoder(cq, prog, io_descs[j].size, [ d_vld ]))
                         else:
                             io_decoders.append(None) # Mark no decoder
 
@@ -77,22 +71,16 @@ class Hierarchy:
 
                     num_prev_columns = lds[i - 1].hidden_size[0] * lds[i - 1].hidden_size[1]
 
-                    # For each timestep
-                    for j in range(lds[i].temporal_horizon):
-                        temporal_history.append(cl.array.zeros(cq, (num_prev_columns,), np.int32))
-
-                    io_history.append(temporal_history)
+                    io_history.append(cl.array.zeros(cq, (num_prev_columns * lds[i].temporal_horizon,), np.int32))
 
                     e_vlds = lds[i].temporal_horizon * [ Encoder.VisibleLayerDesc(size=lds[i - 1].hidden_size, radius=lds[i].e_radius) ]
 
-                    d_vld = Decoder.VisibleLayerDesc(size=lds[i].hidden_size, radius=lds[i].d_radius)
-
-                    d_vlds = 2 * [ d_vld ] if i < len(lds) - 1 else [ d_vld ] # 1 visible layer if no higher layer, otherwise 2 (additional for feed-back)
+                    d_vld = Decoder.VisibleLayerDesc(size=(lds[i].hidden_size[0], lds[i].hidden_size[1], lds[i].hidden_size[2], 2 if i < len(lds) else 1), radius=lds[i].d_radius)
 
                     temporal_decoders = []
 
                     for j in range(lds[i].ticks_per_update):
-                        temporal_decoders.append(Decoder(cq, prog, lds[i - 1].hidden_size, d_vlds))
+                        temporal_decoders.append(Decoder(cq, prog, lds[i - 1].hidden_size, [ d_vld ]))
 
                     self.decoders.append(temporal_decoders)
 
@@ -103,6 +91,8 @@ class Hierarchy:
             self.ticks = len(lds) * [ 0 ]
             self.ticks_per_update = [ lds[i].ticks_per_update for i in range(len(lds)) ]
             self.ticks_per_update[0] = 1 # First layer always 1
+
+            self.history_pos = len(lds) * [ 0 ]
 
             self.updates = len(lds) * [ False ]
 
@@ -125,14 +115,9 @@ class Hierarchy:
                     for j in range(len(self.io_descs)):
                         num_io_columns = self.io_descs[j].size[0] * self.io_descs[j].size[1]
 
-                        temporal_history = []
-
                         # For each timestep
-                        for k in range(self.lds[i].temporal_horizon):
-                            temporal_history.append(cl.array.empty(cq, (num_io_columns,), np.int32))
-                            temporal_history[-1].set(np.array(grp['histories' + str(i) + '_' + str(j) + '_' + str(k)][:], np.int32))
-
-                        io_history.append(temporal_history)
+                        io_history.append(cl.array.empty(cq, (num_io_columns * self.io_descs[j].temporal_horizon,), np.int32))
+                        io_history[-1].set(np.array(grp['histories' + str(i) + '_' + str(j)][:], np.int32))
 
                         if self.io_descs[j].t == IOType.PREDICTION:
                             io_decoders.append(Decoder(cq, prog, grp=grp['decoders' + str(i) + '_' + str(j)]))
@@ -142,16 +127,10 @@ class Hierarchy:
                     self.decoders.append(io_decoders)
 
                 else: # Higher layers
-                    temporal_history = []
-
                     num_prev_columns = self.lds[i - 1].hidden_size[0] * self.lds[i - 1].hidden_size[1]
 
-                    # For each timestep
-                    for j in range(self.lds[i].temporal_horizon):
-                        temporal_history.append(cl.array.empty(cq, (num_prev_columns,), np.int32))
-                        temporal_history[-1].set(np.array(grp['histories' + str(i) + '_0_' + str(j)][:], np.int32))
-
-                    io_history.append(temporal_history)
+                    io_history.append(cl.array.empty(cq, (num_prev_columns * self.lds[i].temporal_horizon,), np.int32))
+                    io_history[-1].set(np.array(grp['histories' + str(i) + '_0'][:], np.int32))
 
                     temporal_decoders = []
 
@@ -167,16 +146,22 @@ class Hierarchy:
             self.ticks = pickle.loads(grp.attrs['ticks'].tobytes())
             self.ticks_per_update = pickle.loads(grp.attrs['ticks_per_update'].tobytes())
 
+            self.history_pos = pickle.loads(grp.attrs['history_pos'].tobytes())
+
             self.updates = pickle.loads(grp.attrs['updates'].tobytes())
 
     def step(self, cq: cl.CommandQueue, input_states: [ cl.array.Array ], learn_enabled: bool = True):
         # Push into first layer history
         for i in range(len(self.io_descs)):
-            back = self.histories[0][i].pop()
+            # Push front
+            self.history_pos[i] -= 1
 
-            cl.enqueue_copy(cq, back.data, input_states[i].data)
+            if self.history_pos[i] < 0:
+                self.history_pos[i] += self.lds[i].temporal_horizon
 
-            self.histories[0][i].insert(0, back)
+            num_visible_columns = self.io_descs[i].size[0] * self.io_descs[i].size[1]
+
+            cl.enqueue_copy(cq, self.histories[0][i].data[num_visible_columns * self.history_pos[i] : num_visible_columns * (self.history_pos[i] + 1)], input_states[i].data)
 
         # Up-pass
         for i in range(len(self.encoders)):
@@ -201,11 +186,15 @@ class Hierarchy:
                 if i < len(self.encoders) - 1:
                     i_next = i + 1
 
-                    back = self.histories[i_next][0].pop()
+                    # Push front
+                    self.history_pos[i_next] -= 1
 
-                    cl.enqueue_copy(cq, back.data, self.encoders[i].hidden_states.data)
+                    if self.history_pos[i_next] < 0:
+                        self.history_pos[i_next] += self.lds[i_next].temporal_horizon
 
-                    self.histories[i_next][0].insert(0, back)
+                    num_visible_columns = self.lds[i].hidden_size[0] * self.lds[i].hidden_size[1]
+
+                    cl.enqueue_copy(cq, self.histories[i_next][0].data[num_visible_columns * self.history_pos[i_next] : num_visible_columns * (self.history_pos[i_next] + 1)], self.encoders[i].hidden_states.data)
 
                     self.ticks[i_next] += 1
 
@@ -238,8 +227,7 @@ class Hierarchy:
 
         for i in range(len(self.lds)):
             for j in range(len(self.histories[i])):
-                for k in range(len(self.histories[i][j])):
-                    grp.create_dataset('histories' + str(i) + '_' + str(j) + '_' + str(k), data=self.histories[i][j][k].get())
+                grp.create_dataset('histories' + str(i) + '_' + str(j), data=self.histories[i][j].get())
 
             for j in range(len(self.decoders[i])):
                 grp.create_group('decoders' + str(i) + '_' + str(j))
@@ -250,5 +238,7 @@ class Hierarchy:
             
         grp.attrs['ticks'] = np.void(pickle.dumps(self.ticks))
         grp.attrs['ticks_per_update'] = np.void(pickle.dumps(self.ticks_per_update))
+
+        grp.attrs['history_pos'] = np.void(pickle.dumps(self.history_pos))
 
         grp.attrs['updates'] = np.void(pickle.dumps(self.updates))

@@ -10,7 +10,7 @@ import pickle
 class Decoder:
     @dataclass
     class VisibleLayerDesc:
-        size: (int, int, int)
+        size: (int, int, int, int) # Width, height, column size, temporal size
         radius: int
 
     class VisibleLayer:
@@ -39,10 +39,10 @@ class Decoder:
 
                 diam = vld.radius * 2 + 1
                 area = diam * diam
-                num_weights = num_hidden_cells * area * vld.size[2]
+                num_weights = num_hidden_cells * area * vld.size[2] * vld.size[3]
 
                 vl.weights = cl.clrandom.rand(cq, (num_weights,), np.float32, a=-0.01, b=0.01)
-                vl.visible_states_prev = cl.array.zeros(cq, (num_visible_columns,), np.int32)
+                vl.visible_states_prev = cl.array.zeros(cq, (num_visible_columns * vld.size[3],), np.int32)
 
                 self.vls.append(vl)
 
@@ -73,10 +73,10 @@ class Decoder:
 
                 diam = vld.radius * 2 + 1
                 area = diam * diam
-                num_weights = num_hidden_cells * area * vld.size[2]
+                num_weights = num_hidden_cells * area * vld.size[2] * vld.size[3]
 
                 vl.weights = cl.array.empty(cq, (num_weights,), np.float32)
-                vl.visible_states_prev = cl.array.empty(cq, (num_visible_columns,), np.int32)
+                vl.visible_states_prev = cl.array.empty(cq, (num_visible_columns * vld.size[3],), np.int32)
 
                 vl.weights.set(np.array(grp['weights' + str(i)][:], np.float32))
                 vl.visible_states_prev.set(np.array(grp['visible_states_prev' + str(i)][:], np.int32))
@@ -90,7 +90,7 @@ class Decoder:
         self.inhibit_activations_kernel = prog.inhibit_activations
         self.decoder_learn_kernel = prog.decoder_learn
 
-    def step(self, cq: cl.CommandQueue, visible_states: [ cl.array.Array ], target_hidden_states: cl.array.Array, learn_enabled: bool = True):
+    def step(self, cq: cl.CommandQueue, visible_states: [ cl.array.Array ], target_hidden_states: cl.array.Array, history_pos: int, learn_enabled: bool = True):
         assert(len(visible_states) == len(self.vls))
 
         # Pad 3-vecs to 4-vecs
@@ -104,12 +104,13 @@ class Decoder:
                 diam = vld.radius * 2 + 1
 
                 # Pad 3-vecs to 4-vecs
-                vec_visible_size = np.array(list(vld.size) + [ 0 ], dtype=np.int32)
+                vec_visible_size = np.array(list(vld.size), dtype=np.int32)
 
                 self.decoder_learn_kernel(cq, self.hidden_size, (1, 1, self.hidden_size[2]),
                         vl.visible_states_prev.data, target_hidden_states.data, self.activations.data, vl.weights.data, 
                         vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
                         np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
+                        np.int32(history_pos),
                         np.float32(self.lr))
 
         # Clear
@@ -123,12 +124,13 @@ class Decoder:
             diam = vld.radius * 2 + 1
 
             # Pad 3-vecs to 4-vecs
-            vec_visible_size = np.array(list(vld.size) + [ 0 ], dtype=np.int32)
+            vec_visible_size = np.array(list(vld.size), dtype=np.int32)
 
             self.accum_activations_kernel(cq, self.hidden_size, (1, 1, self.hidden_size[2]),
                     visible_states[i].data, vl.weights.data, self.activations.data,
                     vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
-                    np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32))
+                    np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
+                    np.int32(history_pos))
 
         self.inhibit_activations_kernel(cq, (self.hidden_size[0], self.hidden_size[1]), None, self.activations.data, self.hidden_states.data,
                 vec_hidden_size,
