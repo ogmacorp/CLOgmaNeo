@@ -133,10 +133,7 @@ class Hierarchy:
                     io_history.append(cl.array.empty(cq, (num_prev_columns * self.lds[i].temporal_horizon,), np.int32))
                     io_history[-1].set(np.array(grp['histories' + str(i) + '_0'][:], np.int32))
 
-                    temporal_decoders = []
-
-                    for j in range(self.lds[i].ticks_per_update):
-                        temporal_decoders.append(Decoder(cq, prog, grp=grp['decoders' + str(i) + '_' + str(j)]))
+                    temporal_decoders = [ Decoder(cq, prog, grp=grp['decoders' + str(i) + '_0']) ]
 
                     self.decoders.append(temporal_decoders)
 
@@ -144,7 +141,7 @@ class Hierarchy:
 
                 self.histories.append(io_history)
 
-                if i < len(lds) - 1:
+                if i < len(self.lds) - 1:
                     self.complete_states.append(cl.array.empty(cq, (self.lds[i].hidden_size[0] * self.lds[i].hidden_size[1] * 2,), dtype=np.int32))
 
             self.ticks = pickle.loads(grp.attrs['ticks'].tobytes())
