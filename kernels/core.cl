@@ -52,8 +52,8 @@ __kernel void accum_activation(
 
     barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 
-    int gc = get_global_id(2) % hidden_size.w;
-    int gt = get_global_id(2) / hidden_size.w;
+    int gc = get_global_id(2) / hidden_size.w;
+    int gt = get_global_id(2) % hidden_size.w;
 
     int hidden_cell_index = gt + hidden_size.w * (gc + hidden_size.z * hidden_column_index);
 
@@ -169,8 +169,8 @@ __kernel void encoder_learn(
 
     barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 
-    int gc = get_global_id(2) % visible_size.w;
-    int gt = get_global_id(2) / visible_size.w;
+    int gc = get_global_id(2) / visible_size.w;
+    int gt = get_global_id(2) % visible_size.w;
 
     int slice = (history_pos + gt) % visible_size.w;
 
@@ -302,8 +302,8 @@ __kernel void decoder_learn(
 
     barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 
-    int gc = get_global_id(2) % hidden_size.w;
-    int gt = get_global_id(2) / hidden_size.w;
+    int gc = get_global_id(2) / hidden_size.w;
+    int gt = get_global_id(2) % hidden_size.w;
     int gslice = (target_pos + gt) % target_temporal_horizon;
 
     int target_state = target_hidden_states[hidden_column_index + num_hidden_columns * gslice];
