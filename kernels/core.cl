@@ -45,7 +45,7 @@ __kernel void accum_activation(
         count = (iter_upper_bound.x - iter_lower_bound.x + 1) * (iter_upper_bound.y - iter_lower_bound.y + 1);
     }
 
-    barrier(CLK_LOCAL_MEM_FENCE);
+    barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 
     int gc = get_global_id(2);
 
@@ -152,7 +152,7 @@ __kernel void encoder_learn(
         max_activation = -999999.0f;
     }
 
-    barrier(CLK_LOCAL_MEM_FENCE);
+    barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 
     int gc = get_global_id(2);
 
@@ -189,7 +189,7 @@ __kernel void encoder_learn(
 
     reconstruction[visible_cell_index] = sum;
 
-    barrier(CLK_LOCAL_MEM_FENCE);
+    barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 
     if (get_local_id(2) == 0) {
         for (int c = 0; c < visible_size.z; c++) {
@@ -202,7 +202,7 @@ __kernel void encoder_learn(
         }
     }
 
-    barrier(CLK_LOCAL_MEM_FENCE);
+    barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 
     if (max_index != target_state) {
         float delta = lr * ((gc == target_state) - sigmoid(sum));
@@ -275,7 +275,7 @@ __kernel void decoder_learn(
         target_state = target_hidden_states[hidden_column_index];
     }
 
-    barrier(CLK_LOCAL_MEM_FENCE);
+    barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 
     int gc = get_global_id(2);
 

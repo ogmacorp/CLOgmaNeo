@@ -41,7 +41,7 @@ __kernel void image_enc_accum_activations(
         count = (iter_upper_bound.x - iter_lower_bound.x + 1) * (iter_upper_bound.y - iter_lower_bound.y + 1);
     }
 
-    barrier(CLK_LOCAL_MEM_FENCE);
+    barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 
     int gc = get_global_id(2);
 
@@ -113,7 +113,7 @@ __kernel void image_enc_learn(
         iter_upper_bound = (int2)(min(visible_size.x - 1, visible_center.x + radius), min(visible_size.y - 1, visible_center.y + radius));
     }
 
-    barrier(CLK_LOCAL_MEM_FENCE);
+    barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 
     int gc = get_global_id(2);
 
@@ -210,7 +210,7 @@ __kernel void image_enc_reconstruct(
         max_activation = -999999.0f;
     }
 
-    barrier(CLK_LOCAL_MEM_FENCE);
+    barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 
     int gc = get_global_id(2);
 
