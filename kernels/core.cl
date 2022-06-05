@@ -173,7 +173,7 @@ __kernel void encoder_learn(
 
     int target_state = visible_states[visible_column_index + num_visible_columns * slice];
 
-    int temporal_visible_cell_index = t + visible_size.w * (gc + visible_size.z * visible_column_index);
+    int temporal_visible_cell_index = slice + visible_size.w * (gc + visible_size.z * visible_column_index);
 
     float sum = 0.0f;
     int count = 0;
@@ -210,7 +210,7 @@ __kernel void encoder_learn(
 
     if (get_local_id(2) == 0) {
         for (int c = 0; c < visible_size.z; c++) {
-            float recon = reconstruction[t + visible_size.w * (c + visible_size.z * visible_column_index)];
+            float recon = reconstruction[slice + visible_size.w * (c + visible_size.z * visible_column_index)];
 
             if (recon > max_activation) {
                 max_activation = recon;

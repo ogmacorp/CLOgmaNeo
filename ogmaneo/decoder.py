@@ -141,7 +141,7 @@ class Decoder:
             vld = self.vlds[i]
             vl = self.vls[i]
 
-            cl.enqueue_copy(cq, vl.visible_states_prev.data, visible_states[i].data)
+            vl.visible_states_prev[:] = visible_states[i][:]
 
     def write(self, grp: h5py.Group):
         grp.attrs['hidden_size'] = np.void(pickle.dumps(self.hidden_size))
