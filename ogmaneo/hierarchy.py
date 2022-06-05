@@ -219,7 +219,7 @@ class Hierarchy:
                         if self.decoders[i][j] is None:
                             continue
 
-                        self.decoders[i][j].step(cq, decoder_visible_states, input_states[j], 0, self.history_pos[i], self.lds[i].temporal_horizon, learn_enabled)
+                        self.decoders[i][j].step(cq, decoder_visible_states, input_states[j], 0, 0, 1, learn_enabled)
                 else:
                     num_prev_columns = self.lds[i - 1].hidden_size[0] * self.lds[i - 1].hidden_size[1]
 
