@@ -106,7 +106,7 @@ class ImageEnc:
         self.activations.fill(np.float32(0))
 
         # Pad 3-vecs to 4-vecs
-        vec_hidden_size = np.array(list(self.hidden_size) + [ 0 ], dtype=np.int32)
+        vec_hidden_size = np.array(list(self.hidden_size) + [ 1 ], dtype=np.int32)
 
         # Accumulate for all visible layers
         for i in range(len(self.vls)):
@@ -116,7 +116,7 @@ class ImageEnc:
             diam = vld.radius * 2 + 1
 
             # Pad 3-vecs to 4-vecs
-            vec_visible_size = np.array(list(vld.size) + [ 0 ], dtype=np.int32)
+            vec_visible_size = np.array(list(vld.size) + [ 1 ], dtype=np.int32)
 
             self.image_enc_accum_activations_kernel(cq, self.hidden_size, (1, 1, self.hidden_size[2]),
                     visible_states[i].data, vl.weights.data, self.activations.data,
@@ -135,7 +135,7 @@ class ImageEnc:
                 diam = vld.radius * 2 + 1
 
                 # Pad 3-vecs to 4-vecs
-                vec_visible_size = np.array(list(vld.size) + [ 0 ], dtype=np.int32)
+                vec_visible_size = np.array(list(vld.size) + [ 1 ], dtype=np.int32)
 
                 self.image_enc_learn_kernel(cq, self.hidden_size, (1, 1, self.hidden_size[2]),
                         visible_states[i].data, self.hidden_states.data, self.hidden_rates.data, vl.weights.data,
@@ -155,7 +155,7 @@ class ImageEnc:
             indices = [ i for i in range(len(self.vls)) ]
 
         # Pad 3-vecs to 4-vecs
-        vec_hidden_size = np.array(list(self.hidden_size) + [ 0 ], dtype=np.int32)
+        vec_hidden_size = np.array(list(self.hidden_size) + [ 1 ], dtype=np.int32)
 
         for i in indices:
             vld = self.vlds[i]
@@ -164,7 +164,7 @@ class ImageEnc:
             diam = vld.radius * 2 + 1
 
             # Pad 3-vecs to 4-vecs
-            vec_visible_size = np.array(list(vld.size) + [ 0 ], dtype=np.int32)
+            vec_visible_size = np.array(list(vld.size) + [ 1 ], dtype=np.int32)
 
             self.image_enc_reconstruct_kernel(cq, vld.size, (1, 1, vld.size[2]),
                     hidden_states.data, vl.weights.data, vl.reconstruction.data,
