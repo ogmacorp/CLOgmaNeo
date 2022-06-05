@@ -177,7 +177,7 @@ class Hierarchy:
 
             num_visible_columns = self.io_descs[i].size[0] * self.io_descs[i].size[1]
 
-            self.histories[0][i][num_visible_columns * self.history_pos[i] : num_visible_columns * (self.history_pos[i] + 1)] = input_states[i]
+            self.histories[0][i][num_visible_columns * self.history_pos[i] : num_visible_columns * (self.history_pos[i] + 1)] = input_states[i][:]
 
         # Up-pass
         for i in range(len(self.encoders)):
@@ -190,7 +190,7 @@ class Hierarchy:
 
                 encoder_visible_states = self.histories[i]
 
-                self.encoders[i].step(cq, encoder_visible_states, self.history_pos[i], learn_enabled)
+                self.encoders[i].step(cq, encoder_visible_states, self.history_pos[i], False)
 
                 # If there is a higher layer
                 if i < len(self.encoders) - 1:
@@ -204,7 +204,7 @@ class Hierarchy:
 
                     num_visible_columns = self.lds[i].hidden_size[0] * self.lds[i].hidden_size[1]
 
-                    self.histories[i_next][0][num_visible_columns * self.history_pos[i_next] : num_visible_columns * (self.history_pos[i_next] + 1)] = self.encoders[i].hidden_states
+                    self.histories[i_next][0][num_visible_columns * self.history_pos[i_next] : num_visible_columns * (self.history_pos[i_next] + 1)] = self.encoders[i].hidden_states[:]
 
                     self.ticks[i_next] += 1
 
@@ -215,8 +215,8 @@ class Hierarchy:
                 decoder_visible_states = []
 
                 if i < len(self.lds) - 1:
-                    self.complete_states[i][: len(self.encoders[i].hidden_states)] = self.encoders[i].hidden_states
-                    self.complete_states[i][len(self.encoders[i].hidden_states) :] = self.decoders[i + 1][self.ticks_per_update[i + 1] - 1 - self.ticks[i + 1]].hidden_states
+                    self.complete_states[i][: len(self.encoders[i].hidden_states)] = self.encoders[i].hidden_states[:]
+                    self.complete_states[i][len(self.encoders[i].hidden_states) :] = self.decoders[i + 1][self.ticks_per_update[i + 1] - 1 - self.ticks[i + 1]].hidden_states[:]
 
                     decoder_visible_states = [ self.complete_states[i] ]
                 else:
@@ -233,7 +233,7 @@ class Hierarchy:
                         num_prev_columns = self.lds[i - 1].hidden_size[0] * self.lds[i - 1].hidden_size[1]
 
                         # Copy to target states
-                        self.target_states[i][j][:] = self.histories[i][0][num_prev_columns * ((self.history_pos[i] + j) % self.lds[i].temporal_horizon) : num_prev_columns * ((self.history_pos[i] + j) % self.lds[i].temporal_horizon + 1)]
+                        self.target_states[i][j][:] = self.histories[i][0][num_prev_columns * ((self.history_pos[i] + j) % self.lds[i].temporal_horizon) : num_prev_columns * ((self.history_pos[i] + j) % self.lds[i].temporal_horizon + 1)][:]
 
                         self.decoders[i][j].step(cq, decoder_visible_states, self.target_states[i][j], self.history_pos[i], learn_enabled)
 
