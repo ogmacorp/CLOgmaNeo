@@ -38,6 +38,7 @@ class Hierarchy:
             self.encoders = []
             self.decoders = []
             self.histories = []
+            self.complete_states = []
 
             # Create layers
             for i in range(len(lds)):
@@ -57,7 +58,7 @@ class Hierarchy:
                         io_history.append(cl.array.zeros(cq, (num_io_columns * lds[i].temporal_horizon,), np.int32))
 
                         if io_descs[j].t == IOType.PREDICTION:
-                            d_vld = Decoder.VisibleLayerDesc(size=(lds[i].hidden_size[0], lds[i].hidden_size[1], lds[i].hidden_size[2], 2 if i < len(lds) else 1), radius=io_descs[j].d_radius)
+                            d_vld = Decoder.VisibleLayerDesc(size=(lds[i].hidden_size[0], lds[i].hidden_size[1], lds[i].hidden_size[2], 2 if i < len(lds) - 1 else 1), radius=io_descs[j].d_radius)
 
                             io_decoders.append(Decoder(cq, prog, io_descs[j].size, [ d_vld ]))
                         else:
@@ -74,7 +75,7 @@ class Hierarchy:
 
                     e_vlds = [ Encoder.VisibleLayerDesc(size=(lds[i - 1].hidden_size[0], lds[i - 1].hidden_size[1], lds[i - 1].hidden_size[2], lds[i].temporal_horizon), radius=lds[i].e_radius) ]
 
-                    d_vld = Decoder.VisibleLayerDesc(size=(lds[i].hidden_size[0], lds[i].hidden_size[1], lds[i].hidden_size[2], 2 if i < len(lds) else 1), radius=lds[i].d_radius)
+                    d_vld = Decoder.VisibleLayerDesc(size=(lds[i].hidden_size[0], lds[i].hidden_size[1], lds[i].hidden_size[2], 2 if i < len(lds) - 1 else 1), radius=lds[i].d_radius)
 
                     temporal_decoders = []
 
@@ -86,6 +87,9 @@ class Hierarchy:
                 self.encoders.append(Encoder(cq, prog, lds[i].hidden_size, e_vlds))
 
                 self.histories.append(io_history)
+
+                if i < len(lds) - 1:
+                    self.complete_states.append(cl.array.empty(cq, (self.lds[i].hidden_size[0] * self.lds[i].hidden_size[1] * 2), dtype=np.int32))
 
             self.ticks = len(lds) * [ 0 ]
             self.ticks_per_update = [ lds[i].ticks_per_update for i in range(len(lds)) ]
@@ -102,6 +106,7 @@ class Hierarchy:
             self.encoders = []
             self.decoders = []
             self.histories = []
+            self.complete_states = []
 
             # Create layers
             for i in range(len(self.lds)):
@@ -142,6 +147,9 @@ class Hierarchy:
 
                 self.histories.append(io_history)
 
+                if i < len(lds) - 1:
+                    self.complete_states.append(cl.array.empty(cq, (self.lds[i].hidden_size[0] * self.lds[i].hidden_size[1] * 2), dtype=np.int32))
+
             self.ticks = pickle.loads(grp.attrs['ticks'].tobytes())
             self.ticks_per_update = pickle.loads(grp.attrs['ticks_per_update'].tobytes())
 
@@ -160,7 +168,7 @@ class Hierarchy:
 
             num_visible_columns = self.io_descs[i].size[0] * self.io_descs[i].size[1]
 
-            cl.enqueue_copy(cq, self.histories[0][i].data, input_states[i].data, dst_offset=num_visible_columns * self.history_pos[i])
+            self.histories[0][i][num_visible_columns * self.history_pos[i] : num_visible_columns * (self.history_pos[i] + 1)] = input_states[i]
 
         # Up-pass
         for i in range(len(self.encoders)):
@@ -194,10 +202,13 @@ class Hierarchy:
         # Down-pass
         for i in range(len(self.decoders) - 1, -1, -1):
             if self.updates[i]:
-                decoder_visible_states = [ self.encoders[i].hidden_states ]
+                # Copy
+                self.complete_states[i][: len(self.encoders[i].hidden_states)] = self.encoders[i].hidden_states
 
-                if i < len(self.encoders) - 1:
-                    decoder_visible_states.append(self.decoders[i + 1][self.ticks_per_update[i + 1] - 1 - self.ticks[i + 1]].hidden_states)
+                if i < len(self.lds) - 1:
+                    self.complete_states[i][len(self.encoders[i].hidden_states) :] = self.decoders[i + 1][self.ticks_per_update[i + 1] - 1 - self.ticks[i + 1]].hidden_states
+
+                decoder_visible_states = [ self.complete_states[i] ]
 
                 if i == 0:
                     for j in range(len(self.io_descs)):
