@@ -87,7 +87,7 @@ class Hierarchy:
 
                     self.decoders.append(temporal_decoders)
 
-                    self.target_states.append([ cl.array.empty((num_prev_columns,), dtype=np.int32) for _ in range(lds[i].ticks_per_update) ])
+                    self.target_states.append([ cl.array.empty(cq, (num_prev_columns,), dtype=np.int32) for _ in range(lds[i].ticks_per_update) ])
 
                 self.encoders.append(Encoder(cq, prog, lds[i].hidden_size, e_vlds))
 
@@ -150,7 +150,7 @@ class Hierarchy:
 
                     self.decoders.append(temporal_decoders)
 
-                    self.target_states.append([ cl.array.empty((num_prev_columns,), dtype=np.int32) for _ in range(lds[i].ticks_per_update) ])
+                    self.target_states.append([ cl.array.empty(cq, (num_prev_columns,), dtype=np.int32) for _ in range(lds[i].ticks_per_update) ])
 
                 self.encoders.append(Encoder(cq, prog, grp=grp['encoders' + str(i)]))
 
@@ -233,7 +233,7 @@ class Hierarchy:
                         num_hidden_columns = self.lds[i - 1].hidden_size[0] * self.lds[i - 1].hidden_size[1]
 
                         # Copy to target states
-                        self.target_states[i][j] = self.histories[i][0][num_hidden_columns * j : num_hidden_columns * (j + 1)]
+                        self.target_states[i][j] = self.histories[i][0][num_hidden_columns * j : num_hidden_columns * (j + 1)].copy()
 
                         self.decoders[i][j].step(cq, decoder_visible_states, self.target_states[i][j], self.history_pos[i], learn_enabled)
 
