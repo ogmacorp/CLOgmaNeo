@@ -109,7 +109,7 @@ class Encoder:
 
             # Pad 3-vecs to 4-vecs
             vec_visible_size = np.array(list(vld.size), dtype=np.int32)
-
+            
             self.accum_activations_kernel(cq, self.hidden_size, (1, 1, self.hidden_size[2]),
                     visible_states[i].data, vl.weights.data, self.activations.data,
                     vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
@@ -130,6 +130,7 @@ class Encoder:
                 # Pad 3-vecs to 4-vecs
                 vec_visible_size = np.array(list(vld.size), dtype=np.int32)
 
+                print(vld.size)
                 self.encoder_learn_kernel(cq, vld.size, (1, 1, vld.size[2], 1),
                         visible_states[i].data, self.hidden_states.data, vl.weights.data, vl.reconstruction.data,
                         vec_visible_size, vec_hidden_size, np.int32(vld.radius),

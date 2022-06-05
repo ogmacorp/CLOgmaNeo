@@ -52,10 +52,9 @@ class Hierarchy:
                         num_io_columns = io_descs[j].size[0] * io_descs[j].size[1]
 
                         # For each timestep
-                        for k in range(lds[i].temporal_horizon):
-                            e_vlds.append(Encoder.VisibleLayerDesc(size=io_descs[j].size, radius=io_descs[j].e_radius))
+                        e_vlds.append(Encoder.VisibleLayerDesc(size=(io_descs[j].size[0], io_descs[j].size[1], io_descs[j].size[2], lds[i].temporal_horizon), radius=io_descs[j].e_radius))
 
-                        io_history.append(cl.array.zeros(cq, (num_io_columns * io_descs[j].temporal_horizon,), np.int32))
+                        io_history.append(cl.array.zeros(cq, (num_io_columns * lds[i].temporal_horizon,), np.int32))
 
                         if io_descs[j].t == IOType.PREDICTION:
                             d_vld = Decoder.VisibleLayerDesc(size=(lds[i].hidden_size[0], lds[i].hidden_size[1], lds[i].hidden_size[2], 2 if i < len(lds) else 1), radius=io_descs[j].d_radius)
@@ -73,7 +72,7 @@ class Hierarchy:
 
                     io_history.append(cl.array.zeros(cq, (num_prev_columns * lds[i].temporal_horizon,), np.int32))
 
-                    e_vlds = lds[i].temporal_horizon * [ Encoder.VisibleLayerDesc(size=lds[i - 1].hidden_size, radius=lds[i].e_radius) ]
+                    e_vlds = [ Encoder.VisibleLayerDesc(size=(lds[i - 1].hidden_size[0], lds[i - 1].hidden_size[1], lds[i - 1].hidden_size[2], lds[i].temporal_horizon), radius=lds[i].e_radius) ]
 
                     d_vld = Decoder.VisibleLayerDesc(size=(lds[i].hidden_size[0], lds[i].hidden_size[1], lds[i].hidden_size[2], 2 if i < len(lds) else 1), radius=lds[i].d_radius)
 
@@ -116,7 +115,7 @@ class Hierarchy:
                         num_io_columns = self.io_descs[j].size[0] * self.io_descs[j].size[1]
 
                         # For each timestep
-                        io_history.append(cl.array.empty(cq, (num_io_columns * self.io_descs[j].temporal_horizon,), np.int32))
+                        io_history.append(cl.array.empty(cq, (num_io_columns * self.lds[i].temporal_horizon,), np.int32))
                         io_history[-1].set(np.array(grp['histories' + str(i) + '_' + str(j)][:], np.int32))
 
                         if self.io_descs[j].t == IOType.PREDICTION:
@@ -161,7 +160,7 @@ class Hierarchy:
 
             num_visible_columns = self.io_descs[i].size[0] * self.io_descs[i].size[1]
 
-            cl.enqueue_copy(cq, self.histories[0][i].data[num_visible_columns * self.history_pos[i] : num_visible_columns * (self.history_pos[i] + 1)], input_states[i].data)
+            cl.enqueue_copy(cq, self.histories[0][i].data, input_states[i].data, dst_offset=num_visible_columns * self.history_pos[i])
 
         # Up-pass
         for i in range(len(self.encoders)):
@@ -172,15 +171,9 @@ class Hierarchy:
 
                 self.updates[i] = True
 
-                encoder_visible_states = []
+                encoder_visible_states = self.histories[i]
 
-                if i == 0:
-                    for j in range(len(self.io_descs)):
-                        encoder_visible_states += self.histories[i][j]
-                else:
-                    encoder_visible_states = self.histories[i][0]
-
-                self.encoders[i].step(cq, encoder_visible_states, learn_enabled)
+                self.encoders[i].step(cq, encoder_visible_states, self.history_pos[i], learn_enabled)
 
                 # If there is a higher layer
                 if i < len(self.encoders) - 1:
@@ -194,7 +187,7 @@ class Hierarchy:
 
                     num_visible_columns = self.lds[i].hidden_size[0] * self.lds[i].hidden_size[1]
 
-                    cl.enqueue_copy(cq, self.histories[i_next][0].data[num_visible_columns * self.history_pos[i_next] : num_visible_columns * (self.history_pos[i_next] + 1)], self.encoders[i].hidden_states.data)
+                    cl.enqueue_copy(cq, self.histories[i_next][0].data, self.encoders[i].hidden_states.data, dst_offset=num_visible_columns * self.history_pos[i_next])
 
                     self.ticks[i_next] += 1
 
@@ -211,10 +204,12 @@ class Hierarchy:
                         if self.decoders[i][j] is None:
                             continue
 
-                        self.decoders[i][j].step(cq, decoder_visible_states, input_states[j], learn_enabled)
+                        self.decoders[i][j].step(cq, decoder_visible_states, input_states[j], self.history_pos[i], learn_enabled)
                 else:
                     for j in range(self.ticks_per_update[i]):
-                        self.decoders[i][j].step(cq, decoder_visible_states, self.histories[i][0][j], learn_enabled)
+                        num_hidden_columns = self.lds[i - 1].hidden_size[0] * self.lds[i - 1].hidden_size[1]
+
+                        self.decoders[i][j].step(cq, decoder_visible_states, self.histories[i][0][num_hidden_columns * j : num_hidden_columns * (j + 1)], self.history_pos[i], learn_enabled)
 
     def get_predicted_states(self, i) -> cl.array.Array:
         assert(self.decoders[0][i] is not None)
