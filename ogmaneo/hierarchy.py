@@ -195,7 +195,7 @@ class Hierarchy:
 
                     num_visible_columns = self.lds[i].hidden_size[0] * self.lds[i].hidden_size[1]
 
-                    cl.enqueue_copy(cq, self.histories[i_next][0].data, self.encoders[i].hidden_states.data, dst_offset=num_visible_columns * self.history_pos[i_next])
+                    self.histories[i_next][0][num_visible_columns * self.history_pos[i_next] : num_visible_columns * (self.history_pos[i_next] + 1)] = self.encoders[i].hidden_states
 
                     self.ticks[i_next] += 1
 
