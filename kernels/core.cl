@@ -164,8 +164,8 @@ __kernel void encoder_learn(
 
     barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 
-    int gc = get_global_id(2);
-    int t = get_global_id(3);
+    int gc = get_global_id(2) % visible_size.w;
+    int t = get_global_id(2) / visible_size.w;
 
     int target_state = visible_states[visible_column_index + num_visible_columns * t];
 
