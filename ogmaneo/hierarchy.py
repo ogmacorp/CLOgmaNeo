@@ -233,7 +233,7 @@ class Hierarchy:
                         num_hidden_columns = self.lds[i - 1].hidden_size[0] * self.lds[i - 1].hidden_size[1]
 
                         # Copy to target states
-                        self.target_states[i][j] = self.histories[i][0][num_hidden_columns * j : num_hidden_columns * (j + 1)].copy()
+                        self.target_states[i][j][:] = self.histories[i][0][num_hidden_columns * ((self.history_pos[i] + j) % self.lds[i].temporal_horizon) : num_hidden_columns * ((self.history_pos[i] + j) % self.lds[i].temporal_horizon + 1)]
 
                         self.decoders[i][j].step(cq, decoder_visible_states, self.target_states[i][j], self.history_pos[i], learn_enabled)
 
