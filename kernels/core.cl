@@ -176,7 +176,7 @@ __kernel void encoder_learn(
 
     int target_state = visible_states[visible_column_index + num_visible_columns * slice];
 
-    int temporal_visible_cell_index = slice + visible_size.w * (gc + visible_size.z * visible_column_index);
+    int temporal_visible_cell_index = gt + visible_size.w * (gc + visible_size.z * visible_column_index);
 
     float sum = 0.0f;
     int count = 0;
