@@ -98,7 +98,7 @@ class Encoder:
         self.activations.fill(np.float32(0))
 
         # Pad 3-vecs to 4-vecs
-        vec_hidden_size = np.array(list(self.hidden_size) + [ 0 ], dtype=np.int32)
+        vec_hidden_size = np.array(list(self.hidden_size) + [ 1 ], dtype=np.int32)
 
         # Accumulate for all visible layers
         for i in range(len(self.vls)):
@@ -116,7 +116,7 @@ class Encoder:
                     np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
                     np.int32(history_pos))
 
-        self.inhibit_activations_kernel(cq, (self.hidden_size[0], self.hidden_size[1]), None, self.activations.data, self.hidden_states.data,
+        self.inhibit_activations_kernel(cq, (self.hidden_size[0], self.hidden_size[1], 1), None, self.activations.data, self.hidden_states.data,
                 vec_hidden_size,
                 np.float32(1.0 / len(self.vls)))
 

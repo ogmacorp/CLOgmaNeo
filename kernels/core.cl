@@ -87,17 +87,19 @@ __kernel void accum_activation(
 __kernel void inhibit_activations(
     __global float* activations,
     __global int* states,
-    int3 size,
+    int4 size,
     float scale
 ) {
     int2 column_pos = (int2)(get_global_id(0), get_global_id(1));
     int column_index = column_pos.y + size.y * column_pos.x;
 
+    int slice = get_global_id(2);
+
     int max_index = 0;
     float max_activation = -999999.0f;
 
     for (int c = 0; c < size.z; c++) {
-        int cell_index = c + size.z * column_index;
+        int cell_index = slice + size.w * (c + size.z * column_index);
 
         activations[cell_index] *= scale;
 
@@ -109,7 +111,7 @@ __kernel void inhibit_activations(
         }
     }
 
-    states[column_index] = max_index;
+    states[slice + size.w * column_index] = max_index;
 }
 
 __kernel void encoder_learn(
@@ -255,7 +257,7 @@ __kernel void decoder_learn(
     __global const float* activations,
     __global float* weights,
     int4 visible_size,
-    int3 hidden_size,
+    int4 hidden_size,
     int radius,
     int diam,
     float2 hToV,
