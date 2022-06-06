@@ -175,7 +175,7 @@ class Hierarchy:
 
                 encoder_visible_states = self.histories[i]
 
-                self.encoders[i].step(cq, encoder_visible_states, self.history_pos[i], False)
+                self.encoders[i].step(cq, encoder_visible_states, self.history_pos[i], learn_enabled)
 
                 # If there is a higher layer
                 if i < len(self.encoders) - 1:
