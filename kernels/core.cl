@@ -94,13 +94,13 @@ __kernel void inhibit_activations(
     int2 column_pos = (int2)(get_global_id(0), get_global_id(1));
     int column_index = column_pos.y + size.y * column_pos.x;
 
-    int t = get_global_id(2);
+    int gt = get_global_id(2);
 
     int max_index = 0;
     float max_activation = -999999.0f;
 
     for (int c = 0; c < size.z; c++) {
-        int cell_index = t + size.w * (c + size.z * column_index);
+        int cell_index = gt + size.w * (c + size.z * column_index);
 
         activations[cell_index] *= scale;
 
@@ -112,7 +112,7 @@ __kernel void inhibit_activations(
         }
     }
 
-    states[column_index + t * size.x * size.y] = max_index;
+    states[column_index + gt * size.x * size.y] = max_index;
 }
 
 __kernel void encoder_learn(
@@ -172,9 +172,9 @@ __kernel void encoder_learn(
     int gc = get_global_id(2) / visible_size.w;
     int gt = get_global_id(2) % visible_size.w;
 
-    int slice = (history_pos + gt) % visible_size.w;
+    int gslice = (history_pos + gt) % visible_size.w;
 
-    int target_state = visible_states[visible_column_index + num_visible_columns * slice];
+    int target_state = visible_states[visible_column_index + num_visible_columns * gslice];
 
     int temporal_visible_cell_index = gt + visible_size.w * (gc + visible_size.z * visible_column_index);
 
@@ -213,7 +213,7 @@ __kernel void encoder_learn(
 
     if (get_local_id(2) == 0) {
         for (int c = 0; c < visible_size.z; c++) {
-            float recon = reconstruction[slice + visible_size.w * (c + visible_size.z * visible_column_index)];
+            float recon = reconstruction[gt + visible_size.w * (c + visible_size.z * visible_column_index)];
 
             if (recon > max_activation) {
                 max_activation = recon;
