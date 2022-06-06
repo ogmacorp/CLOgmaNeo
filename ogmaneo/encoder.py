@@ -34,16 +34,15 @@ class Encoder:
                 vld = self.vlds[i]
                 vl = self.VisibleLayer()
 
-                num_visible_columns = vld.size[0] * vld.size[1]
+                num_visible_columns = vld.size[0] * vld.size[1] * vld.size[3]
                 num_visible_cells = num_visible_columns * vld.size[2]
-                num_visible_cells_through_time = num_visible_cells * vld.size[3]
 
                 diam = vld.radius * 2 + 1
                 area = diam * diam
                 num_weights = num_hidden_cells * area * vld.size[2] * vld.size[3]
 
                 vl.weights = cl.clrandom.rand(cq, (num_weights,), np.float32, a=0.0, b=1.0)
-                vl.reconstruction = cl.array.empty(cq, (num_visible_cells_through_time,), np.float32)
+                vl.reconstruction = cl.array.empty(cq, (num_visible_cells,), np.float32)
 
                 self.vls.append(vl)
 
@@ -68,16 +67,15 @@ class Encoder:
                 vld = self.vlds[i]
                 vl = self.VisibleLayer()
 
-                num_visible_columns = vld.size[0] * vld.size[1]
+                num_visible_columns = vld.size[0] * vld.size[1] * vld.size[3]
                 num_visible_cells = num_visible_columns * vld.size[2]
-                num_visible_cells_through_time = num_visible_cells * vld.size[3]
 
                 diam = vld.radius * 2 + 1
                 area = diam * diam
                 num_weights = num_hidden_cells * area * vld.size[2] * vld.size[3]
 
                 vl.weights = cl.array.empty(cq, (num_weights,), np.float32)
-                vl.reconstruction = cl.array.empty(cq, (num_visible_cells_through_time,), np.float32)
+                vl.reconstruction = cl.array.empty(cq, (num_visible_cells,), np.float32)
 
                 vl.weights.set(np.array(grp['weights' + str(i)][:], np.float32))
 
