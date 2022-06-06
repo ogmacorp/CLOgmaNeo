@@ -60,10 +60,10 @@ __kernel void image_enc_accum_activations(
             int wi_start = visible_size.z * (offset.y + diam * (offset.x + diam * hidden_cell_index));
             int visible_states_start = visible_size.z * visible_column_index;
 
-            for (int vc = 0; vc < visible_size.z; vc++) {
-                int wi = vc + wi_start;
+            for (int c = 0; c < visible_size.z; c++) {
+                int wi = c + wi_start;
 
-                float delta = visible_states[vc + visible_states_start] - weights[wi];
+                float delta = visible_states[c + visible_states_start] - weights[wi];
 
                 sum -= delta * delta;
             }
@@ -134,10 +134,10 @@ __kernel void image_enc_learn(
             int wi_start = visible_size.z * (offset.y + diam * (offset.x + diam * hidden_cell_index));
             int visible_states_start = visible_size.z * visible_column_index;
 
-            for (int vc = 0; vc < visible_size.z; vc++) {
-                int wi = vc + wi_start;
+            for (int c = 0; c < visible_size.z; c++) {
+                int wi = c + wi_start;
 
-                float delta = visible_states[vc + visible_states_start] - weights[wi];
+                float delta = visible_states[c + visible_states_start] - weights[wi];
 
                 weights[wi] += strength * delta;
             }

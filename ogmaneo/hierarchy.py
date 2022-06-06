@@ -152,17 +152,17 @@ class Hierarchy:
             self.updates = pickle.loads(grp.attrs['updates'].tobytes())
 
     def step(self, cq: cl.CommandQueue, input_states: [ cl.array.Array ], learn_enabled: bool = True):
+        # Push front
+        self.history_pos[0] -= 1
+
+        if self.history_pos[0] < 0:
+            self.history_pos[0] += self.lds[0].temporal_horizon
+
         # Push into first layer history
         for i in range(len(self.io_descs)):
-            # Push front
-            self.history_pos[i] -= 1
-
-            if self.history_pos[i] < 0:
-                self.history_pos[i] += self.lds[i].temporal_horizon
-
             num_visible_columns = self.io_descs[i].size[0] * self.io_descs[i].size[1]
 
-            self.histories[0][i][num_visible_columns * self.history_pos[i] : num_visible_columns * (self.history_pos[i] + 1)] = input_states[i][:]
+            self.histories[0][i][num_visible_columns * self.history_pos[0] : num_visible_columns * (self.history_pos[0] + 1)] = input_states[i][:]
 
         # Up-pass
         for i in range(len(self.encoders)):
