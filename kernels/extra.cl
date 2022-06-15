@@ -8,7 +8,7 @@ __kernel void image_enc_accum_activations(
     int3 hidden_size,
     int radius,
     int diam,
-    float2 hToV
+    float2 h_to_v
 ) {
     __local int2 hidden_column_pos;
     __local int hidden_column_index;
@@ -30,7 +30,7 @@ __kernel void image_enc_accum_activations(
         hidden_column_index = hidden_column_pos.y + hidden_size.y * hidden_column_pos.x;
 
         // Project
-        visible_center = (int2)((hidden_column_pos.x + 0.5f) * hToV.x, (hidden_column_pos.y + 0.5f) * hToV.y);
+        visible_center = (int2)((hidden_column_pos.x + 0.5f) * h_to_v.x, (hidden_column_pos.y + 0.5f) * h_to_v.y);
 
         // Bounds
         field_lower_bound = visible_center - radius;
@@ -83,7 +83,7 @@ __kernel void image_enc_learn(
     int3 hidden_size,
     int radius,
     int diam,
-    float2 hToV,
+    float2 h_to_v,
     float falloff
 ) {
     __local int2 hidden_column_pos;
@@ -104,7 +104,7 @@ __kernel void image_enc_learn(
         hidden_column_index = hidden_column_pos.y + hidden_size.y * hidden_column_pos.x;
 
         // Project
-        visible_center = (int2)((hidden_column_pos.x + 0.5f) * hToV.x, (hidden_column_pos.y + 0.5f) * hToV.y);
+        visible_center = (int2)((hidden_column_pos.x + 0.5f) * h_to_v.x, (hidden_column_pos.y + 0.5f) * h_to_v.y);
 
         // Bounds
         field_lower_bound = visible_center - radius;
@@ -174,8 +174,8 @@ __kernel void image_enc_reconstruct(
     int radius,
     int2 reverse_radii,
     int diam,
-    float2 hToV,
-    float2 vToH
+    float2 h_to_v,
+    float2 v_to_h
 ) {
     __local int2 visible_column_pos;
     __local int visible_column_index;
@@ -198,7 +198,7 @@ __kernel void image_enc_reconstruct(
         visible_column_index = visible_column_pos.y + visible_size.y * visible_column_pos.x;
 
         // Project
-        hidden_center = (int2)((visible_column_pos.x + 0.5f) * vToH.x, (visible_column_pos.y + 0.5f) * vToH.y);
+        hidden_center = (int2)((visible_column_pos.x + 0.5f) * v_to_h.x, (visible_column_pos.y + 0.5f) * v_to_h.y);
 
         // Bounds
         field_lower_bound = hidden_center - reverse_radii;
@@ -228,7 +228,7 @@ __kernel void image_enc_reconstruct(
             int hidden_cell_index = hidden_states[hidden_column_index] + hidden_size.z * hidden_column_index;
 
             // Project
-            int2 visible_center = (int2)((hidden_column_pos.x + 0.5f) * hToV.x, (hidden_column_pos.y + 0.5f) * hToV.y);
+            int2 visible_center = (int2)((hidden_column_pos.x + 0.5f) * h_to_v.x, (hidden_column_pos.y + 0.5f) * h_to_v.y);
 
             // Bounds check
             if (visible_column_pos.x >= visible_center.x - radius && visible_column_pos.x <= visible_center.x + radius &&
