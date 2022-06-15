@@ -431,6 +431,18 @@ __kernel void decoder_learn(
     __local int num_hidden_columns;
     __local int num_visible_columns;
 
+    __local int target_state;
+
+    __local int max_dendrite_index;
+    __local float max_dendrite_activation;
+
+    int gd = get_global_id(2) / hidden_size.w;
+    int gt = get_global_id(2) % hidden_size.w;
+
+    int gslice = (target_pos + gt) % target_temporal_horizon;
+
+    barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+
     // Pre-compute for work group
     if (get_local_id(2) == 0) {
         hidden_column_pos = (int2)(get_global_id(0), get_global_id(1));
@@ -447,57 +459,50 @@ __kernel void decoder_learn(
 
         num_hidden_columns = hidden_size.x * hidden_size.y;
         num_visible_columns = visible_size.x * visible_size.y;
+
+        target_state = target_hidden_states[hidden_column_index + num_hidden_columns * gslice];
+
+        max_dendrite_index = 0;
+        max_dendrite_activation = -999999.0f;
+
+        for (int di = 0; di < num_dendrites; di++) {
+            int hidden_dendrite_index = gt + hidden_size.w * (di + num_dendrites * (target_state + hidden_size.z * hidden_column_index));
+
+            float activation = activations[hidden_dendrite_index];
+
+            if (activation > max_dendrite_activation) {
+                max_dendrite_activation = activation;
+                max_dendrite_index = di;
+            }
+        }
     }
 
     barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 
-    int gt = get_global_id(2);
-    int gslice = (target_pos + gt) % target_temporal_horizon;
+    int hidden_dendrite_index = gt + hidden_size.w * (gd + num_dendrites * (target_state + hidden_size.z * hidden_column_index));
 
-    int target_state = target_hidden_states[hidden_column_index + num_hidden_columns * gslice];
+    float rate = (gd == max_dendrite_index ? lr : boost);
 
-    // Find max dendrite
-    int max_dendrite_index = 0;
-    float max_dendrite_activation = -999999.0f;
+    for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
+        for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
+            int2 visible_column_pos = (int2)(ix, iy);
 
-    for (int di = 0; di < num_dendrites; di++) {
-        int hidden_dendrite_index = gt + hidden_size.w * (di + num_dendrites * (target_state + hidden_size.z * hidden_column_index));
+            int visible_column_index = iy + visible_size.y * ix;
 
-        float activation = activations[hidden_dendrite_index];
+            int2 offset = visible_column_pos - field_lower_bound;
 
-        if (activation > max_dendrite_activation) {
-            max_dendrite_activation = activation;
-            max_dendrite_index = di;
-        }
-    }
+            int wi_start = visible_size.z * (offset.y + diam * (offset.x + diam * hidden_dendrite_index));
 
-    // For all dendrites
-    for (int di = 0; di < num_dendrites; di++) {
-        int hidden_dendrite_index = gt + hidden_size.w * (di + num_dendrites * (target_state + hidden_size.z * hidden_column_index));
+            for (int t = 0; t < visible_size.w; t++) {
+                int slice = (history_pos + t) % visible_size.w;
 
-        float rate = (di == max_dendrite_index ? lr : boost);
+                int visible_state = visible_states[visible_column_index + num_visible_columns * slice];
 
-        for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
-            for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
-                int2 visible_column_pos = (int2)(ix, iy);
+                for (int c = 0; c < visible_size.z; c++) {
+                    int wi = t + visible_size.w * (c + wi_start);
 
-                int visible_column_index = iy + visible_size.y * ix;
-
-                int2 offset = visible_column_pos - field_lower_bound;
-
-                int wi_start = visible_size.z * (offset.y + diam * (offset.x + diam * hidden_dendrite_index));
-
-                for (int t = 0; t < visible_size.w; t++) {
-                    int slice = (history_pos + t) % visible_size.w;
-
-                    int visible_state = visible_states[visible_column_index + num_visible_columns * slice];
-
-                    for (int c = 0; c < visible_size.z; c++) {
-                        int wi = t + visible_size.w * (c + wi_start);
-
-                        weights[wi] += rate * ((float)(c == visible_state) - weights[wi]);
-                    }
+                    weights[wi] += rate * ((float)(c == visible_state) - weights[wi]);
                 }
             }
-    }
+        }
 }
