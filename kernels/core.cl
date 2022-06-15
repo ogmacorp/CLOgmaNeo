@@ -80,8 +80,8 @@ __kernel void accum_activations(
 
     barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 
-    int gc = get_global_id(2) / hidden_size.w;
-    int gt = get_global_id(2) % hidden_size.w;
+    int gt = get_global_id(2) / hidden_size.z;
+    int gc = get_global_id(2) % hidden_size.z;
 
     int hidden_cell_index = gt + hidden_size.w * (gc + hidden_size.z * hidden_column_index);
 
@@ -196,8 +196,8 @@ __kernel void accum_dendritic_activations(
 
     barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 
-    int gd = get_global_id(2) / hidden_size.w;
-    int gt = get_global_id(2) % hidden_size.w;
+    int gt = get_global_id(2) / num_dendrites_per_column;
+    int gd = get_global_id(2) % num_dendrites_per_column;
 
     int hidden_dendrite_index = gt + hidden_size.w * (gd + num_dendrites_per_column * hidden_column_index);
 
@@ -436,8 +436,8 @@ __kernel void decoder_learn(
     __local int max_dendrite_index;
     __local float max_dendrite_activation;
 
-    int gd = get_global_id(2) / hidden_size.w;
-    int gt = get_global_id(2) % hidden_size.w;
+    int gt = get_global_id(2) / num_dendrites;
+    int gdi = get_global_id(2) % num_dendrites;
 
     int gslice = (target_pos + gt) % target_temporal_horizon;
 
@@ -479,9 +479,9 @@ __kernel void decoder_learn(
 
     barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 
-    int hidden_dendrite_index = gt + hidden_size.w * (gd + num_dendrites * (target_state + hidden_size.z * hidden_column_index));
+    int hidden_dendrite_index = gt + hidden_size.w * (gdi + num_dendrites * (target_state + hidden_size.z * hidden_column_index));
 
-    float rate = (gd == max_dendrite_index ? lr : boost);
+    float rate = (gdi == max_dendrite_index ? lr : boost);
 
     for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
         for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
