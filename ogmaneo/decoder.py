@@ -132,7 +132,7 @@ class Decoder:
             # Pad 3-vecs to 4-vecs
             vec_visible_size = np.array(list(vld.size), dtype=np.int32)
 
-            self.accum_activations_kernel(cq, (self.hidden_size[0], self.hidden_size[1], self.hidden_size[2] * self.hidden_size[3] * self.num_dendrites), (1, 1, self.hidden_size[2] * self.hidden_size[3] * self.num_dendrites),
+            self.accum_weight_lookup_activations_kernel(cq, (self.hidden_size[0], self.hidden_size[1], self.hidden_size[2] * self.hidden_size[3] * self.num_dendrites), (1, 1, self.hidden_size[2] * self.hidden_size[3] * self.num_dendrites),
                     visible_states[i].data, vl.weights.data, self.activations.data,
                     vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
                     np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
