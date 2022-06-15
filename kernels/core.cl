@@ -316,8 +316,8 @@ __kernel void encoder_learn(
 
     barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 
-    int gc = get_global_id(2) / visible_size.w;
-    int gt = get_global_id(2) % visible_size.w;
+    int gt = get_global_id(2) / visible_size.z;
+    int gc = get_global_id(2) % visible_size.z;
 
     int gslice = (history_pos + gt) % visible_size.w;
 
