@@ -164,7 +164,7 @@ class Hierarchy:
         for i in range(len(self.io_descs)):
             num_visible_columns = self.io_descs[i].size[0] * self.io_descs[i].size[1]
 
-            self.histories[0][i][num_visible_columns * self.history_pos[0] : num_visible_columns * (self.history_pos[0] + 1)] = input_states[i][:]
+            self.histories[0][i][num_visible_columns * self.history_pos[0] : num_visible_columns * (self.history_pos[0] + 1)][:] = input_states[i][:]
 
         # Up-pass
         for i in range(len(self.encoders)):
@@ -191,7 +191,7 @@ class Hierarchy:
 
                     num_visible_columns = self.lds[i].hidden_size[0] * self.lds[i].hidden_size[1]
 
-                    self.histories[i_next][0][num_visible_columns * self.history_pos[i_next] : num_visible_columns * (self.history_pos[i_next] + 1)] = self.encoders[i].hidden_states[:]
+                    self.histories[i_next][0][num_visible_columns * self.history_pos[i_next] : num_visible_columns * (self.history_pos[i_next] + 1)][:] = self.encoders[i].hidden_states[:]
 
                     self.ticks[i_next] += 1
 
