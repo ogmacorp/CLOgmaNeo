@@ -143,7 +143,7 @@ __kernel void inhibit_activations(
     states[column_index + gt * size.x * size.y] = max_index;
 }
 
-__kernel void accum_weight_kernel_activations(
+__kernel void accum_weight_lookup_activations(
     __global const int* visible_states,
     __global const float* weights,
     __global float* activations,

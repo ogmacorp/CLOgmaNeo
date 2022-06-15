@@ -92,7 +92,7 @@ class Decoder:
             self.boost = pickle.loads(grp.attrs['boost'].tobytes())
 
         # Kernels
-        self.accum_activations_kernel = prog.accum_activations
+        self.accum_weight_lookup_activations_kernel = prog.accum_weight_lookup_activations
         self.inhibit_dendritic_activations_kernel = prog.inhibit_dendritic_activations
         self.decoder_learn_kernel = prog.decoder_learn
 
