@@ -1,4 +1,4 @@
-// --- Weight kernel ---
+// --- Weight lookup ---
 
 __constant int weight_lookup_table_resolution = 64;
 __constant float weight_lookup_table_scale = weight_lookup_table_resolution - 1;

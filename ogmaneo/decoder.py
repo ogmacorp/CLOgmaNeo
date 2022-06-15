@@ -99,7 +99,6 @@ class Decoder:
     def step(self, cq: cl.CommandQueue, visible_states: [ cl.array.Array ], target_hidden_states: cl.array.Array, history_pos: int, target_pos: int, target_temporal_horizon: int, learn_enabled: bool = True):
         assert(len(visible_states) == len(self.vls))
 
-        # Pad 3-vecs to 4-vecs
         vec_hidden_size = np.array(list(self.hidden_size), dtype=np.int32)
 
         if learn_enabled:
@@ -109,7 +108,6 @@ class Decoder:
 
                 diam = vld.radius * 2 + 1
 
-                # Pad 3-vecs to 4-vecs
                 vec_visible_size = np.array(list(vld.size), dtype=np.int32)
 
                 self.decoder_learn_kernel(cq, (self.hidden_size[0], self.hidden_size[1], self.hidden_size[3]), (1, 1, self.hidden_size[3]),
@@ -129,7 +127,6 @@ class Decoder:
 
             diam = vld.radius * 2 + 1
 
-            # Pad 3-vecs to 4-vecs
             vec_visible_size = np.array(list(vld.size), dtype=np.int32)
 
             self.accum_dendritic_activations_kernel(cq, (self.hidden_size[0], self.hidden_size[1], self.hidden_size[2] * self.hidden_size[3] * self.num_dendrites), (1, 1, self.hidden_size[2]),
