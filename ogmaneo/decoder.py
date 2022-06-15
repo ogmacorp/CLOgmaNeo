@@ -58,7 +58,7 @@ class Decoder:
 
             num_hidden_columns = self.hidden_size[0] * self.hidden_size[1] * self.hidden_size[3]
             num_hidden_cells = num_hidden_columns * self.hidden_size[2]
-            num_hidden_dendrites = num_hidden_cells * num_dendrites
+            num_hidden_dendrites = num_hidden_cells * self.num_dendrites
 
             self.activations = cl.array.empty(cq, (num_hidden_dendrites,), np.float32)
             self.hidden_states = cl.array.empty(cq, (num_hidden_columns,), np.int32)
