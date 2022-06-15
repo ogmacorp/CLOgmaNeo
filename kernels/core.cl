@@ -143,12 +143,13 @@ __kernel void inhibit_activations(
     states[column_index + gt * size.x * size.y] = max_index;
 }
 
-__kernel void accum_weight_lookup_activations(
+__kernel void accum_dendritic_activations(
     __global const int* visible_states,
     __global const float* weights,
     __global float* activations,
     int4 visible_size,
     int4 hidden_size,
+    int num_dendrites,
     int radius,
     int diam,
     float2 h_to_v,
@@ -170,6 +171,8 @@ __kernel void accum_weight_lookup_activations(
 
     __local int num_visible_columns;
 
+    __local int num_dendrites_per_column;
+
     // Pre-compute for work group
     if (get_local_id(2) == 0) {
         hidden_column_pos = (int2)(get_global_id(0), get_global_id(1));
@@ -187,14 +190,16 @@ __kernel void accum_weight_lookup_activations(
         count = (iter_upper_bound.x - iter_lower_bound.x + 1) * (iter_upper_bound.y - iter_lower_bound.y + 1) * visible_size.w;
 
         num_visible_columns = visible_size.x * visible_size.y;
+        
+        num_dendrites_per_column = hidden_size.z * num_dendrites;
     }
 
     barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 
-    int gc = get_global_id(2) / hidden_size.w;
+    int gd = get_global_id(2) / hidden_size.w;
     int gt = get_global_id(2) % hidden_size.w;
 
-    int hidden_cell_index = gt + hidden_size.w * (gc + hidden_size.z * hidden_column_index);
+    int hidden_dendrite_index = gt + hidden_size.w * (gd + num_dendrites_per_column * hidden_column_index);
 
     float sum = 0.0f;
 
@@ -206,7 +211,7 @@ __kernel void accum_weight_lookup_activations(
 
             int2 offset = visible_column_pos - field_lower_bound;
 
-            int wi_start = visible_size.z * (offset.y + diam * (offset.x + diam * hidden_cell_index));
+            int wi_start = visible_size.z * (offset.y + diam * (offset.x + diam * hidden_dendrite_index));
 
             for (int t = 0; t < visible_size.w; t++) {
                 int slice = (history_pos + t) % visible_size.w;
@@ -221,7 +226,7 @@ __kernel void accum_weight_lookup_activations(
 
     sum /= count;
 
-    activations[hidden_cell_index] += sum;
+    activations[hidden_dendrite_index] += sum;
 }
 
 __kernel void inhibit_dendritic_activations(
@@ -242,11 +247,11 @@ __kernel void inhibit_dendritic_activations(
     float max_activation = -999999.0f;
 
     for (int c = 0; c < num_dendrites_per_column; c++) {
-        int cell_index = gt + size.w * (c + num_dendrites_per_column * column_index);
+        int dendrite_index = gt + size.w * (c + num_dendrites_per_column * column_index);
 
-        activations[cell_index] *= scale;
+        activations[dendrite_index] *= scale;
 
-        float activation = activations[cell_index];
+        float activation = activations[dendrite_index];
 
         if (activation > max_activation) {
             max_activation = activation;
