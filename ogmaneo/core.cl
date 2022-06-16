@@ -1,3 +1,11 @@
+// ----------------------------------------------------------------------------
+//  CLOgmaNeo
+//  Copyright(c) 2022 Ogma Intelligent Systems Corp. All rights reserved.
+//
+//  This copy of CLOgmaNeo is licensed to you under the terms described
+//  in the CLOGMANEO_LICENSE.md file included in this distribution.
+// ----------------------------------------------------------------------------
+
 // --- Weight lookup ---
 
 __constant int weight_lookup_table_resolution = 64;

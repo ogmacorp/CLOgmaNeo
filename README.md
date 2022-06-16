@@ -1,6 +1,6 @@
 <!---
   CLOgmaNeo
-  Copyright(c) 2020-2022 Ogma Intelligent Systems Corp. All rights reserved.
+  Copyright(c) 2022 Ogma Intelligent Systems Corp. All rights reserved.
 
   This copy of OgmaNeo is licensed to you under the terms described
   in the CLOGMANEO_LICENSE.md file included in this distribution.
@@ -29,15 +29,13 @@ Or from this directory:
 
 > pip install .
 
-## Importing and Setup
+## Importing
 
 The CLOgmaNeo module can be imported using:
 
 ```python
 import ogmaneo
 ```
-
-Refer to [the examples](./examples) for usage.
 
 ## Contributions
 
