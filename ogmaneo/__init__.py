@@ -1,10 +1,10 @@
 import pyopencl as cl
 import importlib_resources as res
 
-def load_prog(ctx: cl.Context, f: str = 'core.cl'):
+def load_prog(ctx: cl.Context, kernel_file: str = 'core.cl'):
     kernels_src = ''
 
-    with res.open_text('kernels', 'core.cl') as f:
+    with res.open_text('ogmaneo', 'kernels/' + kernel_file) as f:
         kernels_src = f.read()
 
     prog = cl.Program(ctx, kernels_src).build()
