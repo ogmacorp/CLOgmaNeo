@@ -1,0 +1,24 @@
+[build-system]
+requires = [ "setuptools", "wheel" ]
+
+[project]
+name = "clogmaneo"
+version = "1.0.0"
+description = "PyOpenCL implementation of Sparse Predictive Hierarchies"
+readme = "README.md"
+authors = [{ name = "Eric Laukien", email = "eric@ogmacorp.com" }]
+license = { file = "LICENSE.md" }
+classifiers = [
+    "License :: Free for non-commercial use",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+]
+keywords = ["sph", "ai", "ml"]
+dependencies = [
+    "pyopencl",
+    "h5py"
+]
+requires-python = ">=3.9"
+
+[project.urls]
+Homepage = "https://github.com/ogmacorp/CLOgmaNeo"

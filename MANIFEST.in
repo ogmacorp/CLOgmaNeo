@@ -1,0 +1,2 @@
+include README.md LICENSE.md CLOGMANEO_LICENSE.md
+global-include *.cl
