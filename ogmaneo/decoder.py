@@ -58,7 +58,7 @@ class Decoder:
 
             # Hyperparameters
             self.lr = 0.01
-            self.boost = 0.001
+            self.boost = 0.002
 
         else: # Load from h5py group
             self.hidden_size = pickle.loads(grp.attrs['hidden_size'].tobytes())
@@ -119,7 +119,7 @@ class Decoder:
                 vec_visible_size = np.array(list(vld.size), dtype=np.int32)
 
                 self.decoder_learn_kernel(cq, (self.hidden_size[0], self.hidden_size[1], self.hidden_size[3] * self.num_dendrites), (1, 1, self.num_dendrites),
-                        vl.visible_states_prev.data, target_hidden_states.data, self.activations.data, vl.weights.data, 
+                        vl.visible_states_prev.data, self.hidden_states.data, target_hidden_states.data, self.activations.data, vl.weights.data, 
                         vec_visible_size, vec_hidden_size, np.int32(self.num_dendrites), np.int32(vld.radius), np.int32(diam),
                         np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
                         np.int32(history_pos), np.int32(target_pos), np.int32(target_temporal_horizon),
