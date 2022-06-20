@@ -52,7 +52,7 @@ class ImageEnc:
                 area = diam * diam
                 num_weights = num_hidden_cells * area * vld.size[2]
 
-                vl.weights = cl.clrandom.rand(cq, (num_weights,), np.float32, a=0.0, b=1.0)
+                vl.weights = cl.clrandom.rand(cq, (num_weights,), np.float32, a=0.0, b=0.01)
                 vl.reconstruction = cl.array.zeros(cq, (num_visible_cells,), np.float32)
 
                 self.vls.append(vl)
@@ -131,7 +131,7 @@ class ImageEnc:
                     vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
                     np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32))
 
-        self.inhibit_activations_kernel(cq, (self.hidden_size[0], self.hidden_size[1]), None, self.activations.data, self.hidden_states.data,
+        self.inhibit_activations_kernel(cq, (self.hidden_size[0], self.hidden_size[1], 1), None, self.activations.data, self.hidden_states.data,
                 vec_hidden_size,
                 np.float32(1.0 / len(self.vls)))
 

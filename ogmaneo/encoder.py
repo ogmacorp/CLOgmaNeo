@@ -100,11 +100,11 @@ class Encoder:
     def step(self, cq: cl.CommandQueue, visible_states: [ cl.array.Array ], history_pos: int, learn_enabled: bool = True):
         assert(len(visible_states) == len(self.vls))
 
-        # Clear
-        self.activations.fill(np.float32(0))
-
         # Pad 3-vecs to 4-vecs
         vec_hidden_size = np.array(list(self.hidden_size) + [ 1 ], dtype=np.int32)
+
+        # Clear
+        self.activations.fill(np.float32(0))
 
         # Accumulate for all visible layers
         for i in range(len(self.vls)):
