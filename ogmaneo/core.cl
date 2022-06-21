@@ -345,9 +345,7 @@ __kernel void decoder_learn(
 
                 int wi = t + visible_size.w * (visible_state + wi_start);
 
-                float weight = weights[wi];
-
-                weights[wi] += delta * exp(-weight * weight * stick);
+                weights[wi] += delta * sigmoid(-weights[wi] * stick);
             }
         }
 }
