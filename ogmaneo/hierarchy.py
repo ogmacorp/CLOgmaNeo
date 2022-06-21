@@ -27,14 +27,12 @@ class Hierarchy:
     class IODesc:
         size: (int, int, int) = (4, 4, 16)
         t: IOType = IOType.PREDICTION
-        num_dendrites: int = 4
         e_radius: int = 2
         d_radius: int = 2
 
     @dataclass
     class LayerDesc:
         hidden_size: (int, int, int) = (4, 4, 16)
-        num_dendrites: int = 4
         e_radius: int = 2
         d_radius: int = 2
         ticks_per_update: int = 2
@@ -70,7 +68,7 @@ class Hierarchy:
                         if io_descs[j].t == IOType.PREDICTION:
                             d_vld = Decoder.VisibleLayerDesc(size=(lds[i].hidden_size[0], lds[i].hidden_size[1], lds[i].hidden_size[2], 2 if i < len(lds) - 1 else 1), radius=io_descs[j].d_radius)
 
-                            io_decoders.append(Decoder(cq, prog, (io_descs[j].size[0], io_descs[j].size[1], io_descs[j].size[2], 1), io_descs[j].num_dendrites, [ d_vld ]))
+                            io_decoders.append(Decoder(cq, prog, (io_descs[j].size[0], io_descs[j].size[1], io_descs[j].size[2], 1), [ d_vld ]))
                         else:
                             io_decoders.append(None) # Mark no decoder
 
@@ -87,7 +85,7 @@ class Hierarchy:
 
                     d_vld = Decoder.VisibleLayerDesc(size=(lds[i].hidden_size[0], lds[i].hidden_size[1], lds[i].hidden_size[2], 2 if i < len(lds) - 1 else 1), radius=lds[i].d_radius)
 
-                    temporal_decoders = [ Decoder(cq, prog, (lds[i - 1].hidden_size[0], lds[i - 1].hidden_size[1], lds[i - 1].hidden_size[2], lds[i].ticks_per_update), lds[i].num_dendrites, [ d_vld ]) ]
+                    temporal_decoders = [ Decoder(cq, prog, (lds[i - 1].hidden_size[0], lds[i - 1].hidden_size[1], lds[i - 1].hidden_size[2], lds[i].ticks_per_update), [ d_vld ]) ]
 
                     self.decoders.append(temporal_decoders)
 

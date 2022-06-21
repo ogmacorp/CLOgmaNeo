@@ -25,16 +25,14 @@ class Decoder:
         weights: cl.array.Array
         visible_states_prev: cl.array.Array
 
-    def __init__(self, cq: cl.CommandQueue, prog: cl.Program, hidden_size: (int, int, int, int) = (4, 4, 16, 1), num_dendrites: int = 4, vlds: [ VisibleLayerDesc ] = [], grp: h5py.Group = None):
+    def __init__(self, cq: cl.CommandQueue, prog: cl.Program, hidden_size: (int, int, int, int) = (4, 4, 16, 1), vlds: [ VisibleLayerDesc ] = [], grp: h5py.Group = None):
         if grp is None:
             self.hidden_size = hidden_size
-            self.num_dendrites = num_dendrites
 
             num_hidden_columns = hidden_size[0] * hidden_size[1] * hidden_size[3]
             num_hidden_cells = num_hidden_columns * hidden_size[2]
-            num_hidden_dendrites = num_hidden_cells * num_dendrites
 
-            self.activations = cl.array.zeros(cq, (num_hidden_dendrites,), np.float32)
+            self.activations = cl.array.zeros(cq, (num_hidden_cells,), np.float32)
             self.hidden_states = cl.array.zeros(cq, (num_hidden_columns,), np.int32)
 
             self.vlds = vlds
@@ -49,7 +47,7 @@ class Decoder:
 
                 diam = vld.radius * 2 + 1
                 area = diam * diam
-                num_weights = num_hidden_dendrites * area * vld.size[2] * vld.size[3]
+                num_weights = num_hidden_cells * area * vld.size[2] * vld.size[3]
 
                 vl.weights = cl.clrandom.rand(cq, (num_weights,), np.float32, a=0.0, b=0.0001)
                 vl.visible_states_prev = cl.array.zeros(cq, (num_visible_columns * vld.size[3],), np.int32)
@@ -58,17 +56,15 @@ class Decoder:
 
             # Hyperparameters
             self.lr = 0.01
-            self.boost = 0.001
+            self.stick = 0.001
 
         else: # Load from h5py group
             self.hidden_size = pickle.loads(grp.attrs['hidden_size'].tobytes())
-            self.num_dendrites = pickle.loads(grp.attrs['num_dendrites'].tobytes())
 
             num_hidden_columns = self.hidden_size[0] * self.hidden_size[1] * self.hidden_size[3]
             num_hidden_cells = num_hidden_columns * self.hidden_size[2]
-            num_hidden_dendrites = num_hidden_cells * self.num_dendrites
 
-            self.activations = cl.array.empty(cq, (num_hidden_dendrites,), np.float32)
+            self.activations = cl.array.empty(cq, (num_hidden_cells,), np.float32)
             self.hidden_states = cl.array.empty(cq, (num_hidden_columns,), np.int32)
 
             self.activations.set(np.array(grp['activations'][:], np.float32))
@@ -86,7 +82,7 @@ class Decoder:
 
                 diam = vld.radius * 2 + 1
                 area = diam * diam
-                num_weights = num_hidden_dendrites * area * vld.size[2] * vld.size[3]
+                num_weights = num_hidden_cells * area * vld.size[2] * vld.size[3]
 
                 vl.weights = cl.array.empty(cq, (num_weights,), np.float32)
                 vl.visible_states_prev = cl.array.empty(cq, (num_visible_columns * vld.size[3],), np.int32)
@@ -97,11 +93,11 @@ class Decoder:
                 self.vls.append(vl)
 
             self.lr = pickle.loads(grp.attrs['lr'].tobytes())
-            self.boost = pickle.loads(grp.attrs['boost'].tobytes())
+            self.stick = pickle.loads(grp.attrs['stick'].tobytes())
 
         # Kernels
-        self.accum_dendritic_activations_kernel = prog.accum_dendritic_activations
-        self.inhibit_dendritic_activations_kernel = prog.inhibit_dendritic_activations
+        self.accum_activations_kernel = prog.accum_activations
+        self.inhibit_activations_kernel = prog.inhibit_activations
         self.decoder_learn_kernel = prog.decoder_learn
 
     def step(self, cq: cl.CommandQueue, visible_states: [ cl.array.Array ], target_hidden_states: cl.array.Array, history_pos: int, target_pos: int, target_temporal_horizon: int, learn_enabled: bool = True):
@@ -118,12 +114,12 @@ class Decoder:
 
                 vec_visible_size = np.array(list(vld.size), dtype=np.int32)
 
-                self.decoder_learn_kernel(cq, (self.hidden_size[0], self.hidden_size[1], self.hidden_size[3] * self.num_dendrites), (1, 1, self.num_dendrites),
+                self.decoder_learn_kernel(cq, (self.hidden_size[0], self.hidden_size[1], self.hidden_size[2] * self.hidden_size[3]), (1, 1, self.hidden_size[2]),
                         vl.visible_states_prev.data, self.hidden_states.data, target_hidden_states.data, self.activations.data, vl.weights.data, 
-                        vec_visible_size, vec_hidden_size, np.int32(self.num_dendrites), np.int32(vld.radius), np.int32(diam),
+                        vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
                         np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
                         np.int32(history_pos), np.int32(target_pos), np.int32(target_temporal_horizon),
-                        np.float32(self.lr), np.float32(self.boost))
+                        np.float32(self.lr), np.float32(self.stick))
 
         # Clear
         self.activations.fill(np.float32(0))
@@ -137,14 +133,14 @@ class Decoder:
 
             vec_visible_size = np.array(list(vld.size), dtype=np.int32)
 
-            self.accum_dendritic_activations_kernel(cq, (self.hidden_size[0], self.hidden_size[1], self.hidden_size[2] * self.hidden_size[3] * self.num_dendrites), (1, 1, self.hidden_size[2]),
+            self.accum_activations_kernel(cq, (self.hidden_size[0], self.hidden_size[1], self.hidden_size[2] * self.hidden_size[3]), (1, 1, self.hidden_size[2]),
                     visible_states[i].data, vl.weights.data, self.activations.data,
-                    vec_visible_size, vec_hidden_size, np.int32(self.num_dendrites), np.int32(vld.radius), np.int32(diam),
+                    vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
                     np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
                     np.int32(history_pos))
 
-        self.inhibit_dendritic_activations_kernel(cq, (self.hidden_size[0], self.hidden_size[1], self.hidden_size[3]), None, self.activations.data, self.hidden_states.data,
-                vec_hidden_size, np.int32(self.num_dendrites),
+        self.inhibit_activations_kernel(cq, (self.hidden_size[0], self.hidden_size[1], self.hidden_size[3]), None, self.activations.data, self.hidden_states.data,
+                vec_hidden_size,
                 np.float32(1.0 / len(self.vls)))
 
         # Copy to prevs
@@ -156,7 +152,6 @@ class Decoder:
 
     def write(self, grp: h5py.Group):
         grp.attrs['hidden_size'] = np.void(pickle.dumps(self.hidden_size))
-        grp.attrs['num_dendrites'] = np.void(pickle.dumps(self.num_dendrites))
 
         grp.create_dataset('activations', data=self.activations.get())
         grp.create_dataset('hidden_states', data=self.hidden_states.get())
@@ -168,4 +163,4 @@ class Decoder:
             grp.create_dataset('visible_states_prev' + str(i), data=self.vls[i].visible_states_prev.get())
 
         grp.attrs['lr'] = np.void(pickle.dumps(self.lr))
-        grp.attrs['boost'] = np.void(pickle.dumps(self.boost))
+        grp.attrs['stick'] = np.void(pickle.dumps(self.stick))
