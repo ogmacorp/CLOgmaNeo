@@ -336,7 +336,7 @@ __kernel void decoder_learn(
 
             int2 offset = visible_column_pos - field_lower_bound;
 
-            int wi_start = visible_size.z * (offset.y + diam * (offset.x + diam * hidden_dendrite_index_target));
+            int wi_start = visible_size.z * (offset.y + diam * (offset.x + diam * hidden_cell_index));
 
             for (int t = 0; t < visible_size.w; t++) {
                 int slice = (history_pos + t) % visible_size.w;
