@@ -56,6 +56,7 @@ class Encoder:
 
             # Hyperparameters
             self.lr = 0.1
+            self.stick = 4.0
 
         else: # Load from h5py group
             self.hidden_size = pickle.loads(grp.attrs['hidden_size'].tobytes())
@@ -91,6 +92,7 @@ class Encoder:
 
             # Hyperparameters
             self.lr = pickle.loads(grp.attrs['lr'].tobytes())
+            self.stick = pickle.loads(grp.attrs['stick'].tobytes())
 
         # Kernels
         self.accum_activations_kernel = prog.accum_activations
@@ -142,7 +144,7 @@ class Encoder:
                         np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
                         np.array([ self.hidden_size[0] / vld.size[0], self.hidden_size[1] / vld.size[1] ], dtype=np.float32),
                         np.int32(history_pos),
-                        np.float32(self.lr))
+                        np.float32(self.lr), np.float32(self.stick))
 
     def write(self, grp: h5py.Group):
         grp.attrs['hidden_size'] = np.void(pickle.dumps(self.hidden_size))
@@ -155,6 +157,7 @@ class Encoder:
             grp.create_dataset('weights' + str(i), data=self.vls[i].weights.get())
 
         grp.attrs['lr'] = np.void(pickle.dumps(self.lr))
+        grp.attrs['stick'] = np.void(pickle.dumps(self.stick))
 
 
         
