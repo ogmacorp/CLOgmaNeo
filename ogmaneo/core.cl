@@ -12,15 +12,15 @@ __constant int weight_lookup_table_resolution = 64;
 __constant float weight_lookup_table_scale = weight_lookup_table_resolution - 1;
 
 __constant float weight_lookup_table[weight_lookup_table_resolution + 1] = {
-    0.000000, 0.177466, 0.249969, 0.304911, 0.350646, 0.390425, 0.425918, 0.458123, 
-    0.487692, 0.515079, 0.540615, 0.564553, 0.587087, 0.608374, 0.628539, 0.647689, 
-    0.665910, 0.683278, 0.699854, 0.715695, 0.730849, 0.745356, 0.759255, 0.772577, 
-    0.785353, 0.797609, 0.809368, 0.820652, 0.831479, 0.841869, 0.851835, 0.861395, 
-    0.870559, 0.879342, 0.887754, 0.895806, 0.903508, 0.910868, 0.917894, 0.924595, 
-    0.930976, 0.937046, 0.942809, 0.948272, 0.953439, 0.958315, 0.962905, 0.967213, 
-    0.971242, 0.974996, 0.978478, 0.981692, 0.984639, 0.987322, 0.989743, 0.991905, 
-    0.993808, 0.995455, 0.996846, 0.997982, 0.998866, 0.999496, 0.999874, 1.000000,
-    1.000000 // Dummy
+    -4.158883, -3.465736, -3.060271, -2.772589, -2.549445, -2.367124, -2.212973, -2.079442, 
+    -1.961659, -1.856298, -1.760988, -1.673976, -1.593934, -1.519826, -1.450833, -1.386294, 
+    -1.325670, -1.268511, -1.214444, -1.163151, -1.114361, -1.067841, -1.023389, -0.980829, 
+    -0.940007, -0.900787, -0.863046, -0.826679, -0.791587, -0.757686, -0.724896, -0.693147, 
+    -0.662376, -0.632523, -0.603535, -0.575364, -0.547965, -0.521297, -0.495321, -0.470004, 
+    -0.445311, -0.421213, -0.397683, -0.374693, -0.352221, -0.330242, -0.308735, -0.287682, 
+    -0.267063, -0.246860, -0.227057, -0.207639, -0.188591, -0.169899, -0.151550, -0.133531, 
+    -0.115832, -0.098440, -0.081346, -0.064539, -0.048009, -0.031749, -0.015748, 0.000000,
+    0.000000 // Dummy
 };
 
 // --- Helpers ---
@@ -536,28 +536,50 @@ __kernel void decoder_learn(
 
     int hidden_dendrite_index_target = gt + hidden_size.w * (gdi + num_dendrites * (target_state + hidden_size.z * hidden_column_index));
 
-    float rate = (gdi == max_dendrite_index ? lr : boost);
+    if (gdi == max_dendrite_index) {
+        for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
+            for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
+                int2 visible_column_pos = (int2)(ix, iy);
 
-    for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
-        for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
-            int2 visible_column_pos = (int2)(ix, iy);
+                int visible_column_index = iy + visible_size.y * ix;
 
-            int visible_column_index = iy + visible_size.y * ix;
+                int2 offset = visible_column_pos - field_lower_bound;
 
-            int2 offset = visible_column_pos - field_lower_bound;
+                int wi_start = visible_size.z * (offset.y + diam * (offset.x + diam * hidden_dendrite_index_target));
 
-            int wi_start = visible_size.z * (offset.y + diam * (offset.x + diam * hidden_dendrite_index_target));
+                for (int t = 0; t < visible_size.w; t++) {
+                    int slice = (history_pos + t) % visible_size.w;
 
-            for (int t = 0; t < visible_size.w; t++) {
-                int slice = (history_pos + t) % visible_size.w;
+                    int visible_state = visible_states[visible_column_index + num_visible_columns * slice];
 
-                int visible_state = visible_states[visible_column_index + num_visible_columns * slice];
+                    for (int c = 0; c < visible_size.z; c++) {
+                        int wi = t + visible_size.w * (c + wi_start);
 
-                for (int c = 0; c < visible_size.z; c++) {
-                    int wi = t + visible_size.w * (c + wi_start);
-
-                    weights[wi] = clamp(weights[wi] + rate * ((float)(c == visible_state) - visible_size_z_inv), 0.0f, 1.0f);
+                        weights[wi] = clamp(weights[wi] + lr * ((float)(c == visible_state) - visible_size_z_inv), 0.0f, 1.0f);
+                    }
                 }
             }
-        }
+    }
+    else { // Boost
+        for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
+            for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
+                int2 visible_column_pos = (int2)(ix, iy);
+
+                int visible_column_index = iy + visible_size.y * ix;
+
+                int2 offset = visible_column_pos - field_lower_bound;
+
+                int wi_start = visible_size.z * (offset.y + diam * (offset.x + diam * hidden_dendrite_index_target));
+
+                for (int t = 0; t < visible_size.w; t++) {
+                    int slice = (history_pos + t) % visible_size.w;
+
+                    int visible_state = visible_states[visible_column_index + num_visible_columns * slice];
+
+                    int wi = t + visible_size.w * (visible_state + wi_start);
+
+                    weights[wi] = min(1.0f, weights[wi] + boost);
+                }
+            }
+    }
 }
