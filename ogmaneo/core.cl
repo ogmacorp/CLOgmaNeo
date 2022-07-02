@@ -138,8 +138,7 @@ __kernel void encoder_learn(
     float2 h_to_v,
     float2 v_to_h,
     int history_pos,
-    float lr,
-    float stick
+    float lr
 ) {
     __local int2 visible_column_pos;
     __local int visible_column_index;
@@ -257,7 +256,7 @@ __kernel void encoder_learn(
 
                     int wi = gt + visible_size.w * (gc + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_cell_index)));
 
-                    weights[wi] += delta * sigmoid(-weights[wi] * stick);
+                    weights[wi] += delta;
                 }
             }
     }
@@ -276,8 +275,7 @@ __kernel void decoder_learn(
     int history_pos,
     int target_pos,
     int target_temporal_horizon,
-    float lr,
-    float stick
+    float lr
 ) {
     __local int2 hidden_column_pos;
     __local int hidden_column_index;
@@ -346,7 +344,7 @@ __kernel void decoder_learn(
 
                 int wi = t + visible_size.w * (visible_state + wi_start);
 
-                weights[wi] += delta * sigmoid(-weights[wi] * stick);
+                weights[wi] += delta;
             }
         }
 }
