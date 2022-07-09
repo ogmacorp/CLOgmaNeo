@@ -34,7 +34,7 @@ class Hierarchy:
     class LayerDesc:
         hidden_size: (int, int, int) = (4, 4, 16)
         e_radius: int = 2
-        r_radius: int = 0
+        r_radius: int = 2
         d_radius: int = 2
 
     def __init__(self, cq: cl.CommandQueue, prog: cl.Program, io_descs: [ IODesc ] = [], lds: [ LayerDesc ] = [], grp: h5py.Group = None):
