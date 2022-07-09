@@ -159,9 +159,6 @@ class Hierarchy:
         grp.attrs['lds'] = np.void(pickle.dumps(self.lds))
 
         for i in range(len(self.lds)):
-            for j in range(len(self.histories[i])):
-                grp.create_dataset('histories' + str(i) + '_' + str(j), data=self.histories[i][j].get())
-
             for j in range(len(self.decoders[i])):
                 grp.create_group('decoders' + str(i) + '_' + str(j))
                 self.decoders[i][j].write(grp['decoders' + str(i) + '_' + str(j)])
