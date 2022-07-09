@@ -34,6 +34,7 @@ class Encoder:
 
             self.activations = cl.array.empty(cq, (num_hidden_cells,), np.float32)
             self.hidden_states = cl.array.zeros(cq, (num_hidden_columns,), np.int32)
+            self.hidden_states_prev = cl.array.zeros(cq, (num_hidden_columns,), np.int32)
 
             self.vlds = vlds
             self.vls = []
@@ -65,8 +66,10 @@ class Encoder:
 
             self.activations = cl.array.empty(cq, (num_hidden_cells,), np.float32)
             self.hidden_states = cl.array.empty(cq, (num_hidden_columns,), np.int32)
+            self.hidden_states_prev = cl.array.empty(cq, (num_hidden_columns,), np.int32)
 
             self.hidden_states.set(np.array(grp['hidden_states'][:], np.int32))
+            self.hidden_states_prev.set(np.array(grp['hidden_states_prev'][:], np.int32))
             
             self.vlds = pickle.loads(grp.attrs['vlds'].tobytes())
             self.vls = []
@@ -143,6 +146,9 @@ class Encoder:
                         np.array([ self.hidden_size[0] / vld.size[0], self.hidden_size[1] / vld.size[1] ], dtype=np.float32),
                         np.int32(history_pos),
                         np.float32(self.lr))
+
+        # Copy to prev
+        self.hidden_states_prev[:] = self.hidden_states[:]
 
     def write(self, grp: h5py.Group):
         grp.attrs['hidden_size'] = np.void(pickle.dumps(self.hidden_size))

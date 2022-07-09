@@ -59,7 +59,7 @@ class ImageEnc:
 
             # Hyperparameters
             self.lr = 0.01
-            self.falloff = 0.1
+            self.falloff = 0.5
 
         else: # Load from h5py group
             self.hidden_size = pickle.loads(grp.attrs['hidden_size'].tobytes())
