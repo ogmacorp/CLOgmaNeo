@@ -154,6 +154,7 @@ class Encoder:
         grp.attrs['hidden_size'] = np.void(pickle.dumps(self.hidden_size))
 
         grp.create_dataset('hidden_states', data=self.hidden_states.get())
+        grp.create_dataset('hidden_states_prev', data=self.hidden_states_prev.get())
 
         grp.attrs['vlds'] = np.void(pickle.dumps(self.vlds))
 
