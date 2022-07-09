@@ -54,7 +54,7 @@ __kernel void accum_activations(
         iter_lower_bound = (int2)(max(0, field_lower_bound.x), max(0, field_lower_bound.y));
         iter_upper_bound = (int2)(min(visible_size.x - 1, visible_center.x + radius), min(visible_size.y - 1, visible_center.y + radius));
 
-        count = (iter_upper_bound.x - iter_lower_bound.x + 1) * (iter_upper_bound.y - iter_lower_bound.y + 1) * visible_size.w;
+        count = (iter_upper_bound.x - iter_lower_bound.x + 1) * (iter_upper_bound.y - iter_lower_bound.y + 1);
 
         num_visible_columns = visible_size.x * visible_size.y;
     }
@@ -127,7 +127,6 @@ __kernel void encoder_learn(
     int diam,
     float2 h_to_v,
     float2 v_to_h,
-    int history_pos,
     float lr
 ) {
     __local int2 visible_column_pos;
@@ -259,9 +258,6 @@ __kernel void decoder_learn(
     int radius,
     int diam,
     float2 h_to_v,
-    int history_pos,
-    int target_pos,
-    int target_temporal_horizon,
     float lr
 ) {
     __local int2 hidden_column_pos;
@@ -302,7 +298,7 @@ __kernel void decoder_learn(
         num_hidden_columns = hidden_size.x * hidden_size.y;
         num_visible_columns = visible_size.x * visible_size.y;
 
-        target_state = target_hidden_states[hidden_column_index + num_hidden_columns * gslice];
+        target_state = target_hidden_states[hidden_column_index];
     }
 
     barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
@@ -319,7 +315,7 @@ __kernel void decoder_learn(
 
             int2 offset = visible_column_pos - field_lower_bound;
 
-            int visible_state = visible_states[visible_column_index + num_visible_columns * slice];
+            int visible_state = visible_states[visible_column_index];
 
             int wi = visible_state + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_cell_index));
 

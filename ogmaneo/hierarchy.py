@@ -44,7 +44,6 @@ class Hierarchy:
 
             self.encoders = []
             self.decoders = []
-            self.complete_states = []
 
             # Create layers
             for i in range(len(lds)):
@@ -58,31 +57,28 @@ class Hierarchy:
                         num_io_columns = io_descs[j].size[0] * io_descs[j].size[1]
 
                         # For each timestep
-                        e_vlds.append(Encoder.VisibleLayerDesc(size=(io_descs[j].size[0], io_descs[j].size[1], io_descs[j].size[2], 1), radius=io_descs[j].e_radius))
+                        e_vlds.append(Encoder.VisibleLayerDesc(size=(io_descs[j].size[0], io_descs[j].size[1], io_descs[j].size[2]), radius=io_descs[j].e_radius))
 
                         if io_descs[j].t == IOType.PREDICTION:
-                            d_vld = Decoder.VisibleLayerDesc(size=(lds[i].hidden_size[0], lds[i].hidden_size[1], lds[i].hidden_size[2], 2 if i < len(lds) - 1 else 1), radius=io_descs[j].d_radius)
+                            d_vld = Decoder.VisibleLayerDesc(size=(lds[i].hidden_size[0], lds[i].hidden_size[1], lds[i].hidden_size[2]), radius=io_descs[j].d_radius)
 
-                            io_decoders.append(Decoder(cq, prog, (io_descs[j].size[0], io_descs[j].size[1], io_descs[j].size[2], 1), [ d_vld ]))
+                            io_decoders.append(Decoder(cq, prog, (io_descs[j].size[0], io_descs[j].size[1], io_descs[j].size[2]), (2 if i < len(lds) - 1 else 1) * [ d_vld ]))
                         else:
                             io_decoders.append(None) # Mark no decoder
 
                     self.decoders.append(io_decoders)
 
                 else: # Higher layers
-                    e_vlds = [ Encoder.VisibleLayerDesc(size=(lds[i - 1].hidden_size[0], lds[i - 1].hidden_size[1], lds[i - 1].hidden_size[2], 1), radius=lds[i].e_radius) ]
+                    e_vlds = [ Encoder.VisibleLayerDesc(size=(lds[i - 1].hidden_size[0], lds[i - 1].hidden_size[1], lds[i - 1].hidden_size[2]), radius=lds[i].e_radius) ]
 
-                    d_vld = Decoder.VisibleLayerDesc(size=(lds[i].hidden_size[0], lds[i].hidden_size[1], lds[i].hidden_size[2], 2 if i < len(lds) - 1 else 1), radius=lds[i].d_radius)
+                    d_vld = Decoder.VisibleLayerDesc(size=(lds[i].hidden_size[0], lds[i].hidden_size[1], lds[i].hidden_size[2]), radius=lds[i].d_radius)
 
-                    self.decoders.append([ Decoder(cq, prog, (lds[i - 1].hidden_size[0], lds[i - 1].hidden_size[1], lds[i - 1].hidden_size[2], 1), [ d_vld ]) ])
+                    self.decoders.append([ Decoder(cq, prog, (lds[i - 1].hidden_size[0], lds[i - 1].hidden_size[1], lds[i - 1].hidden_size[2]), (2 if i < len(lds) - 1 else 1) * [ d_vld ]) ])
 
                 if lds[i].r_radius >= 0:
-                    e_vlds.append(Encoder.VisibleLayerDesc(size=(lds[i].hidden_size[0], lds[i].hidden_size[1], lds[i].hidden_size[2], 1), radius=lds[i].r_radius))
+                    e_vlds.append(Encoder.VisibleLayerDesc(size=(lds[i].hidden_size[0], lds[i].hidden_size[1], lds[i].hidden_size[2]), radius=lds[i].r_radius))
 
                 self.encoders.append(Encoder(cq, prog, lds[i].hidden_size, e_vlds))
-
-                if i < len(lds) - 1:
-                    self.complete_states.append(cl.array.empty(cq, (self.lds[i].hidden_size[0] * self.lds[i].hidden_size[1] * 2,), dtype=np.int32))
 
         else: # Load from h5py group
             self.io_descs = pickle.loads(grp.attrs['io_descs'].tobytes())
@@ -90,7 +86,6 @@ class Hierarchy:
 
             self.encoders = []
             self.decoders = []
-            self.complete_states = []
 
             # Create layers
             for i in range(len(self.lds)):
@@ -111,9 +106,6 @@ class Hierarchy:
 
                 self.encoders.append(Encoder(cq, prog, grp=grp['encoders' + str(i)]))
 
-                if i < len(self.lds) - 1:
-                    self.complete_states.append(cl.array.empty(cq, (self.lds[i].hidden_size[0] * self.lds[i].hidden_size[1] * 2,), dtype=np.int32))
-
     def step(self, cq: cl.CommandQueue, input_states: [ cl.array.Array ], learn_enabled: bool = True):
         # Up-pass
         for i in range(len(self.encoders)):
@@ -122,18 +114,14 @@ class Hierarchy:
             if self.lds[i].r_radius >= 0:
                 encoder_visible_states.append(self.encoders[i].hidden_states_prev)
 
-            self.encoders[i].step(cq, encoder_visible_states, 0, learn_enabled)
+            self.encoders[i].step(cq, encoder_visible_states, learn_enabled)
 
         # Down-pass
         for i in range(len(self.decoders) - 1, -1, -1):
             decoder_visible_states = []
 
             if i < len(self.lds) - 1:
-                # Copy
-                self.complete_states[i][: len(self.encoders[i].hidden_states)] = self.encoders[i].hidden_states[:]
-                self.complete_states[i][len(self.encoders[i].hidden_states) :] = self.decoders[i + 1][0].hidden_states[:]
-
-                decoder_visible_states = [ self.complete_states[i] ]
+                decoder_visible_states = [ self.encoders[i].hidden_states[:], self.decoders[i + 1][0].hidden_states[:] ]
             else:
                 decoder_visible_states = [ self.encoders[i].hidden_states ]
 
@@ -142,9 +130,9 @@ class Hierarchy:
                     if self.decoders[i][j] is None:
                         continue
 
-                    self.decoders[i][j].step(cq, decoder_visible_states, input_states[j], 0, 0, 1, learn_enabled)
+                    self.decoders[i][j].step(cq, decoder_visible_states, input_states[j], learn_enabled)
             else:
-                self.decoders[i][0].step(cq, decoder_visible_states, self.encoders[i - 1].hidden_states, 0, 0, 1, learn_enabled)
+                self.decoders[i][0].step(cq, decoder_visible_states, self.encoders[i - 1].hidden_states, learn_enabled)
 
     def get_predicted_states(self, i) -> cl.array.Array:
         assert(self.decoders[0][i] is not None)

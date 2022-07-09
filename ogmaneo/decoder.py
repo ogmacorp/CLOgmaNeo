@@ -25,7 +25,7 @@ class Decoder:
         weights: cl.array.Array
         visible_states_prev: cl.array.Array
 
-    def __init__(self, cq: cl.CommandQueue, prog: cl.Program, hidden_size: (int, int, int) = (4, 4, 16, 1), vlds: [ VisibleLayerDesc ] = [], grp: h5py.Group = None):
+    def __init__(self, cq: cl.CommandQueue, prog: cl.Program, hidden_size: (int, int, int) = (4, 4, 16), vlds: [ VisibleLayerDesc ] = [], grp: h5py.Group = None):
         if grp is None:
             self.hidden_size = hidden_size
 
@@ -98,7 +98,7 @@ class Decoder:
         self.inhibit_activations_kernel = prog.inhibit_activations
         self.decoder_learn_kernel = prog.decoder_learn
 
-    def step(self, cq: cl.CommandQueue, visible_states: [ cl.array.Array ], target_hidden_states: cl.array.Array, history_pos: int, target_pos: int, target_temporal_horizon: int, learn_enabled: bool = True):
+    def step(self, cq: cl.CommandQueue, visible_states: [ cl.array.Array ], target_hidden_states: cl.array.Array, learn_enabled: bool = True):
         assert(len(visible_states) == len(self.vls))
 
         vec_hidden_size = np.array(list(self.hidden_size) + [ 1 ], dtype=np.int32)
@@ -116,7 +116,6 @@ class Decoder:
                         vl.visible_states_prev.data, target_hidden_states.data, self.activations.data, vl.weights.data, 
                         vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
                         np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
-                        np.int32(history_pos), np.int32(target_pos), np.int32(target_temporal_horizon),
                         np.float32(self.lr))
 
         # Clear
@@ -134,8 +133,7 @@ class Decoder:
             self.accum_activations_kernel(cq, self.hidden_size, (1, 1, self.hidden_size[2]),
                     visible_states[i].data, vl.weights.data, self.activations.data,
                     vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
-                    np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
-                    np.int32(history_pos))
+                    np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32))
 
         self.inhibit_activations_kernel(cq, (self.hidden_size[0], self.hidden_size[1]), None, self.activations.data, self.hidden_states.data,
                 vec_hidden_size,

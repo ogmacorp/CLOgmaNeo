@@ -100,7 +100,7 @@ class Encoder:
         self.inhibit_activations_kernel = prog.inhibit_activations
         self.encoder_learn_kernel = prog.encoder_learn
 
-    def step(self, cq: cl.CommandQueue, visible_states: [ cl.array.Array ], history_pos: int, learn_enabled: bool = True):
+    def step(self, cq: cl.CommandQueue, visible_states: [ cl.array.Array ], learn_enabled: bool = True):
         assert(len(visible_states) == len(self.vls))
 
         # Pad 3-vecs to 4-vecs
@@ -121,8 +121,7 @@ class Encoder:
             self.accum_activations_kernel(cq, self.hidden_size, (1, 1, self.hidden_size[2]),
                     visible_states[i].data, vl.weights.data, self.activations.data,
                     vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
-                    np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
-                    np.int32(history_pos))
+                    np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32))
 
         self.inhibit_activations_kernel(cq, (self.hidden_size[0], self.hidden_size[1], 1), None, self.activations.data, self.hidden_states.data,
                 vec_hidden_size,
@@ -144,7 +143,6 @@ class Encoder:
                         np.int32(diam),
                         np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
                         np.array([ self.hidden_size[0] / vld.size[0], self.hidden_size[1] / vld.size[1] ], dtype=np.float32),
-                        np.int32(history_pos),
                         np.float32(self.lr))
 
         # Copy to prev
