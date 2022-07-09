@@ -74,14 +74,12 @@ class Hierarchy:
 
                     d_vld = Decoder.VisibleLayerDesc(size=(lds[i].hidden_size[0], lds[i].hidden_size[1], lds[i].hidden_size[2], 2 if i < len(lds) - 1 else 1), radius=lds[i].d_radius)
 
-                    self.decoders.append([ Decoder(cq, prog, (lds[i - 1].hidden_size[0], lds[i - 1].hidden_size[1], lds[i - 1].hidden_size[2], lds[i].ticks_per_update), [ d_vld ]) ])
+                    self.decoders.append([ Decoder(cq, prog, (lds[i - 1].hidden_size[0], lds[i - 1].hidden_size[1], lds[i - 1].hidden_size[2], 1), [ d_vld ]) ])
 
                 if lds[i].r_radius >= 0:
-                    e_vlds.append(Encoder.VisibleLayerDesc(size=(lds[i].hidden_size[0], lds[i].hidden_size[1], lds[i].hidden_size[2], 1)))
+                    e_vlds.append(Encoder.VisibleLayerDesc(size=(lds[i].hidden_size[0], lds[i].hidden_size[1], lds[i].hidden_size[2], 1), radius=lds[i].r_radius))
 
                 self.encoders.append(Encoder(cq, prog, lds[i].hidden_size, e_vlds))
-
-                self.histories.append(io_history)
 
                 if i < len(lds) - 1:
                     self.complete_states.append(cl.array.empty(cq, (self.lds[i].hidden_size[0] * self.lds[i].hidden_size[1] * 2,), dtype=np.int32))
@@ -96,8 +94,6 @@ class Hierarchy:
 
             # Create layers
             for i in range(len(self.lds)):
-                io_history = []
-
                 if i == 0: # First layer
                     io_decoders = []
 
@@ -121,7 +117,7 @@ class Hierarchy:
     def step(self, cq: cl.CommandQueue, input_states: [ cl.array.Array ], learn_enabled: bool = True):
         # Up-pass
         for i in range(len(self.encoders)):
-            encoder_visible_states = [ self.encoders[i - 1].hidden_states ] if i == 0 else input_states
+            encoder_visible_states = input_states if i == 0 else [ self.encoders[i - 1].hidden_states ]
 
             if self.lds[i].r_radius >= 0:
                 encoder_visible_states.append(self.encoders[i].hidden_states_prev)
@@ -151,7 +147,7 @@ class Hierarchy:
 
                     self.decoders[i][j].step(cq, decoder_visible_states, input_states[j], 0, 0, 1, learn_enabled)
             else:
-                self.decoders[i][0].step(cq, decoder_visible_states, self.histories[i][0], 0, 0, self.lds[i].temporal_horizon, learn_enabled)
+                self.decoders[i][0].step(cq, decoder_visible_states, self.encoders[i - 1].hidden_states, 0, 0, 1, learn_enabled)
 
     def get_predicted_states(self, i) -> cl.array.Array:
         assert(self.decoders[0][i] is not None)
