@@ -126,14 +126,11 @@ class Hierarchy:
 
         # Down-pass
         for i in range(len(self.decoders) - 1, -1, -1):
-            # Copy
             decoder_visible_states = []
 
             if i < len(self.lds) - 1:
+                # Copy
                 self.complete_states[i][: len(self.encoders[i].hidden_states)] = self.encoders[i].hidden_states[:]
-
-                num_hidden_columns = self.lds[i].hidden_size[0] * self.lds[i].hidden_size[1]
-
                 self.complete_states[i][len(self.encoders[i].hidden_states) :] = self.decoders[i + 1][0].hidden_states[:]
 
                 decoder_visible_states = [ self.complete_states[i] ]
