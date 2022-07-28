@@ -205,7 +205,7 @@ class Hierarchy:
                 else:
                     self.decoders[i][0].generate_errors(cq, 0, self.errors[i], self.histories[i][0], self.history_pos[i], self.lds[i].temporal_horizon)
 
-                self.encoders[i].step(cq, encoder_visible_states, self.errors[i], self.history_pos[i], learn_enabled)
+                self.encoders[i].step(cq, encoder_visible_states, self.errors[i], self.history_pos[i], False)
 
                 # If there is a higher layer
                 if i < len(self.encoders) - 1:
