@@ -46,7 +46,7 @@ class Hierarchy:
             self.encoders = []
             self.decoders = []
             self.histories = []
-            self.complete_states = []
+            self.errors = []
 
             # Create layers
             for i in range(len(lds)):
@@ -93,8 +93,7 @@ class Hierarchy:
 
                 self.histories.append(io_history)
 
-                if i < len(lds) - 1:
-                    self.complete_states.append(cl.array.empty(cq, (self.lds[i].hidden_size[0] * self.lds[i].hidden_size[1] * 2,), dtype=np.int32))
+                self.errors.append(cl.array.empty(cq, (self.lds[i].hidden_size[0] * self.lds[i].hidden_size[1] * self.lds[i].hidden_size[2],), dtype=np.float32))
 
             self.ticks = len(lds) * [ 0 ]
             self.ticks_per_update = [ lds[i].ticks_per_update for i in range(len(lds)) ]
@@ -111,7 +110,7 @@ class Hierarchy:
             self.encoders = []
             self.decoders = []
             self.histories = []
-            self.complete_states = []
+            self.errors = []
 
             # Create layers
             for i in range(len(self.lds)):
@@ -149,8 +148,7 @@ class Hierarchy:
 
                 self.histories.append(io_history)
 
-                if i < len(self.lds) - 1:
-                    self.complete_states.append(cl.array.empty(cq, (self.lds[i].hidden_size[0] * self.lds[i].hidden_size[1] * 2,), dtype=np.int32))
+                self.errors.append(cl.array.empty(cq, (self.lds[i].hidden_size[0] * self.lds[i].hidden_size[1] * self.lds[i].hidden_size[2],), dtype=np.int32))
 
             self.ticks = pickle.loads(grp.attrs['ticks'].tobytes())
             self.ticks_per_update = pickle.loads(grp.attrs['ticks_per_update'].tobytes())

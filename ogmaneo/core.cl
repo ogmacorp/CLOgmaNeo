@@ -524,7 +524,7 @@ __kernel void decoder_dense_learn(
 }
 
 __kernel void decoder_backward(
-    __global const int* hidden_states,
+    __global const int* target_hidden_states,
     __global const float* activations,
     __global const float* weights,
     __global float* errors,
@@ -535,7 +535,9 @@ __kernel void decoder_backward(
     int diam,
     float2 h_to_v,
     float2 v_to_h,
-    int history_pos
+    int history_pos,
+    int target_pos,
+    int target_temporal_horizon
 ) {
     __local int2 visible_column_pos;
     __local int visible_column_index;
@@ -605,15 +607,19 @@ __kernel void decoder_backward(
             {
                 int2 offset = (int2)(visible_column_pos.x - visible_center.x + radius, visible_column_pos.y - visible_center.y + radius);
 
-                for (int c = 0; c < hidden_size.z; c++) {
-                    int hidden_cell_index = c + hidden_size.z * hidden_column_index;
+                for (int t = 0; t < hidden_size.w; t++) {
+                    int slice = (target_pos + t) % hidden_size.w;
 
-                    int wi = gt + visible_size.w * (gc + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_cell_index)));
+                    for (int c = 0; c < hidden_size.z; c++) {
+                        int hidden_cell_index = t + hidden_size.w * (c + hidden_size.z * hidden_column_index);
 
-                    sum += weights[wi] * ((c == hidden_state) - activations[hidden_cell_index]);
+                        int wi = gt + visible_size.w * (gc + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_cell_index)));
+
+                        sum += weights[wi] * ((c == hidden_state) - activations[hidden_cell_index]);
+                    }
+
+                    count++;
                 }
-
-                count++;
             }
         }
 

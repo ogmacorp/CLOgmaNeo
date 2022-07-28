@@ -171,7 +171,7 @@ class Decoder:
 
             vl.visible_states_prev[:] = visible_states[i][:]
 
-    def generate_errors(self, target_hidden_states: cl.array.Array):
+    def generate_errors(self, cq: cl.CommandQueue, target_hidden_states: cl.array.Array, history_pos: int, target_pos: int, target_temporal_horizon: int):
         for i in range(len(self.vls)):
             vld = self.vlds[i]
             vl = self.vls[i]
@@ -187,7 +187,7 @@ class Decoder:
                     np.int32(diam),
                     np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
                     np.array([ self.hidden_size[0] / vld.size[0], self.hidden_size[1] / vld.size[1] ], dtype=np.float32),
-                    np.int32(history_pos),
+                    np.int32(history_pos), np.int32(target_pos), np.int32(target_temporal_horizon),
                     np.float32(self.lr))
 
     def write(self, grp: h5py.Group):
