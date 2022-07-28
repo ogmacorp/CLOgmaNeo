@@ -60,7 +60,7 @@ class Decoder:
                 self.vls.append(vl)
 
             # Hyperparameters
-            self.lr = 1.0
+            self.lr = 0.5
 
         else: # Load from h5py group
             self.hidden_size = pickle.loads(grp.attrs['hidden_size'].tobytes())
@@ -195,7 +195,7 @@ class Decoder:
             # Pad 3-vecs to 4-vecs
             vec_visible_size = np.array(list(vld.size) + [ 1 ], dtype=np.int32)
 
-            self.decoder_generate_errors_kernel(cq, (vld.size[0], vld.size[1], vld.size[2]), (1, 1, vld.size[2]),
+            self.decoder_generate_errors_kernel(cq, vld.size, (1, 1, vld.size[2]),
                     target_hidden_states.data, self.activations.data, vl.weights.data, errors.data,
                     vec_visible_size, vec_hidden_size, np.int32(vld.radius),
                     np.array([ math.ceil(diam * self.hidden_size[0] / vld.size[0] * 0.5), math.ceil(diam * self.hidden_size[1] / vld.size[1] * 0.5) ], np.int32),

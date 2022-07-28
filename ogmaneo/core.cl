@@ -599,7 +599,7 @@ __kernel void decoder_generate_errors(
                     int target_hidden_state = target_hidden_states[hidden_column_index + slice * num_hidden_columns];
 
                     for (int c = 0; c < hidden_size.z; c++) {
-                        int hidden_cell_index = slice + hidden_size.w * (c + hidden_size.z * hidden_column_index);
+                        int hidden_cell_index = t + hidden_size.w * (c + hidden_size.z * hidden_column_index);
 
                         int wi = gc + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_cell_index));
 
