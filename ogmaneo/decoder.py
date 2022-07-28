@@ -183,7 +183,7 @@ class Decoder:
 
             vl.visible_states_prev[:] = visible_states[i][:]
 
-    def generate_errors(self, i: int, cq: cl.CommandQueue, errors: cl.array.Array, target_hidden_states: cl.array.Array, target_pos: int, target_temporal_horizon: int):
+    def generate_errors(self, cq: cl.CommandQueue, i: int, errors: cl.array.Array, target_hidden_states: cl.array.Array, target_pos: int, target_temporal_horizon: int):
         vec_hidden_size = np.array(list(self.hidden_size), dtype=np.int32)
 
         vld = self.vlds[i]
