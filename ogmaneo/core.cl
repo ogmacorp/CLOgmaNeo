@@ -350,12 +350,11 @@ __kernel void decoder_sparse_learn(
     __global const int* target_hidden_states,
     __global const float* activations,
     __global float* weights,
-    int4 visible_size,
+    int3 visible_size,
     int4 hidden_size,
     int radius,
     int diam,
     float2 h_to_v,
-    int history_pos,
     int target_pos,
     int target_temporal_horizon,
     float lr
@@ -420,15 +419,11 @@ __kernel void decoder_sparse_learn(
 
             int wi_start = visible_size.z * (offset.y + diam * (offset.x + diam * hidden_cell_index));
 
-            for (int t = 0; t < visible_size.w; t++) {
-                int slice = (history_pos + t) % visible_size.w;
+            int visible_state = visible_states[visible_column_index];
 
-                int visible_state = visible_states[visible_column_index + num_visible_columns * slice];
+            int wi = visible_state + wi_start;
 
-                int wi = t + visible_size.w * (visible_state + wi_start);
-
-                weights[wi] += delta;
-            }
+            weights[wi] += delta;
         }
 }
 
@@ -437,12 +432,11 @@ __kernel void decoder_dense_learn(
     __global const int* target_hidden_states,
     __global const float* activations,
     __global float* weights,
-    int4 visible_size,
+    int3 visible_size,
     int4 hidden_size,
     int radius,
     int diam,
     float2 h_to_v,
-    int history_pos,
     int target_pos,
     int target_temporal_horizon,
     float lr
@@ -509,18 +503,14 @@ __kernel void decoder_dense_learn(
 
             int wi_start = visible_size.z * (offset.y + diam * (offset.x + diam * hidden_cell_index));
 
-            for (int t = 0; t < visible_size.w; t++) {
-                int slice = (history_pos + t) % visible_size.w;
+            for (int c = 0; c < visible_size.z; c++) {
+                int visible_cell_index = c + visible_size.z * visible_column_index;
 
-                for (int c = 0; c < visible_size.z; c++) {
-                    int visible_cell_index = c + visible_size.z * visible_column_index;
+                float visible_state = visible_states[visible_cell_index];
 
-                    float visible_state = visible_states[visible_cell_index + num_visible_cells * slice];
+                int wi = c + wi_start;
 
-                    int wi = t + visible_size.w * (c + wi_start);
-
-                    weights[wi] += delta * visible_state;
-                }
+                weights[wi] += delta * visible_state;
             }
         }
 }
@@ -530,14 +520,13 @@ __kernel void decoder_generate_errors(
     __global const float* activations,
     __global const float* weights,
     __global float* errors,
-    int4 visible_size,
+    int3 visible_size,
     int4 hidden_size,
     int radius,
     int2 reverse_radii,
     int diam,
     float2 h_to_v,
     float2 v_to_h,
-    int history_pos,
     int target_pos,
     int target_temporal_horizon
 ) {
@@ -582,12 +571,9 @@ __kernel void decoder_generate_errors(
 
     barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 
-    int gt = get_global_id(2) / visible_size.z;
-    int gc = get_global_id(2) % visible_size.z;
+    int gc = get_global_id(2);
 
-    int gslice = (history_pos + gt) % visible_size.w;
-
-    int temporal_visible_cell_index = gt + visible_size.w * (gc + visible_size.z * visible_column_index);
+    int visible_cell_index = gc + visible_size.z * visible_column_index;
 
     float sum = 0.0f;
     int count = 0;
@@ -615,7 +601,7 @@ __kernel void decoder_generate_errors(
                     for (int c = 0; c < hidden_size.z; c++) {
                         int hidden_cell_index = slice + hidden_size.w * (c + hidden_size.z * hidden_column_index);
 
-                        int wi = gt + visible_size.w * (gc + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_cell_index)));
+                        int wi = gc + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_cell_index));
 
                         sum += weights[wi] * ((c == target_hidden_state) - activations[hidden_cell_index]);
                     }
@@ -627,5 +613,5 @@ __kernel void decoder_generate_errors(
 
     sum /= max(1, count);
 
-    errors[temporal_visible_cell_index] = sum;
+    errors[visible_cell_index] = sum;
 }

@@ -18,7 +18,7 @@ import pickle
 class Decoder:
     @dataclass
     class VisibleLayerDesc:
-        size: (int, int, int, int) # Width, height, column size, temporal size
+        size: (int, int, int) # Width, height, column size
         radius: int
         is_dense: False
 
@@ -48,14 +48,14 @@ class Decoder:
 
                 diam = vld.radius * 2 + 1
                 area = diam * diam
-                num_weights = num_hidden_cells * area * vld.size[2] * vld.size[3]
+                num_weights = num_hidden_cells * area * vld.size[2]
 
                 vl.weights = cl.clrandom.rand(cq, (num_weights,), np.float32, a=-0.01, b=0.01)
 
                 if vld.is_dense:
-                    vl.visible_states_prev = cl.array.zeros(cq, (num_visible_cells * vld.size[3],), np.float32)
+                    vl.visible_states_prev = cl.array.zeros(cq, (num_visible_cells,), np.float32)
                 else:
-                    vl.visible_states_prev = cl.array.zeros(cq, (num_visible_columns * vld.size[3],), np.int32)
+                    vl.visible_states_prev = cl.array.zeros(cq, (num_visible_columns,), np.int32)
 
                 self.vls.append(vl)
 
@@ -86,17 +86,17 @@ class Decoder:
 
                 diam = vld.radius * 2 + 1
                 area = diam * diam
-                num_weights = num_hidden_cells * area * vld.size[2] * vld.size[3]
+                num_weights = num_hidden_cells * area * vld.size[2]
 
                 vl.weights = cl.array.empty(cq, (num_weights,), np.float32)
 
                 vl.weights.set(np.array(grp['weights' + str(i)][:], np.float32))
 
                 if vld.is_dense:
-                    vl.visible_states_prev = cl.array.empty(cq, (num_visible_cells * vld.size[3],), np.float32)
+                    vl.visible_states_prev = cl.array.empty(cq, (num_visible_cells,), np.float32)
                     vl.visible_states_prev.set(np.array(grp['visible_states_prev' + str(i)][:], np.float32))
                 else:
-                    vl.visible_states_prev = cl.array.empty(cq, (num_visible_columns * vld.size[3],), np.int32)
+                    vl.visible_states_prev = cl.array.empty(cq, (num_visible_columns,), np.int32)
                     vl.visible_states_prev.set(np.array(grp['visible_states_prev' + str(i)][:], np.int32))
 
                 self.vls.append(vl)
@@ -112,7 +112,7 @@ class Decoder:
         self.decoder_dense_learn_kernel = prog.decoder_dense_learn
         self.decoder_generate_errors_kernel = prog.decoder_generate_errors
 
-    def step(self, cq: cl.CommandQueue, visible_states: [ cl.array.Array ], target_hidden_states: cl.array.Array, history_pos: int, target_pos: int, target_temporal_horizon: int, learn_enabled: bool = True):
+    def step(self, cq: cl.CommandQueue, visible_states: [ cl.array.Array ], target_hidden_states: cl.array.Array, target_pos: int, target_temporal_horizon: int, learn_enabled: bool = True):
         assert(len(visible_states) == len(self.vls))
 
         vec_hidden_size = np.array(list(self.hidden_size), dtype=np.int32)
@@ -124,21 +124,22 @@ class Decoder:
 
                 diam = vld.radius * 2 + 1
 
-                vec_visible_size = np.array(list(vld.size), dtype=np.int32)
+                # Pad 3-vecs to 4-vecs
+                vec_visible_size = np.array(list(vld.size) + [ 1 ], dtype=np.int32)
 
                 if vld.is_dense:
                     self.decoder_dense_learn_kernel(cq, (self.hidden_size[0], self.hidden_size[1], self.hidden_size[2] * self.hidden_size[3]), (1, 1, self.hidden_size[2]),
                             vl.visible_states_prev.data, target_hidden_states.data, self.activations.data, vl.weights.data, 
                             vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
                             np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
-                            np.int32(history_pos), np.int32(target_pos), np.int32(target_temporal_horizon),
+                            np.int32(target_pos), np.int32(target_temporal_horizon),
                             np.float32(self.lr))
                 else:
                     self.decoder_sparse_learn_kernel(cq, (self.hidden_size[0], self.hidden_size[1], self.hidden_size[2] * self.hidden_size[3]), (1, 1, self.hidden_size[2]),
                             vl.visible_states_prev.data, target_hidden_states.data, self.activations.data, vl.weights.data, 
                             vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
                             np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
-                            np.int32(history_pos), np.int32(target_pos), np.int32(target_temporal_horizon),
+                            np.int32(target_pos), np.int32(target_temporal_horizon),
                             np.float32(self.lr))
 
         # Clear
@@ -151,20 +152,19 @@ class Decoder:
 
             diam = vld.radius * 2 + 1
 
-            vec_visible_size = np.array(list(vld.size), dtype=np.int32)
+            # Pad 3-vecs to 4-vecs
+            vec_visible_size = np.array(list(vld.size) + [ 1 ], dtype=np.int32)
 
             if vld.is_dense:
                 self.accum_dense_activations_kernel(cq, (self.hidden_size[0], self.hidden_size[1], self.hidden_size[2] * self.hidden_size[3]), (1, 1, self.hidden_size[2]),
                         visible_states[i].data, vl.weights.data, self.activations.data,
                         vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
-                        np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
-                        np.int32(history_pos))
+                        np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32))
             else: # Sparse
                 self.accum_sparse_activations_kernel(cq, (self.hidden_size[0], self.hidden_size[1], self.hidden_size[2] * self.hidden_size[3]), (1, 1, self.hidden_size[2]),
                         visible_states[i].data, vl.weights.data, self.activations.data,
                         vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
-                        np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
-                        np.int32(history_pos))
+                        np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32))
 
         self.sparse_activations_kernel(cq, (self.hidden_size[0], self.hidden_size[1], self.hidden_size[3]), None, self.activations.data, self.hidden_states.data,
                 vec_hidden_size,
@@ -181,7 +181,7 @@ class Decoder:
 
             vl.visible_states_prev[:] = visible_states[i][:]
 
-    def generate_errors(self, cq: cl.CommandQueue, errors: cl.array.Array, target_hidden_states: cl.array.Array, history_pos: int, target_pos: int, target_temporal_horizon: int):
+    def generate_errors(self, cq: cl.CommandQueue, errors: cl.array.Array, target_hidden_states: cl.array.Array, target_pos: int, target_temporal_horizon: int):
         vec_hidden_size = np.array(list(self.hidden_size), dtype=np.int32)
 
         for i in range(len(self.vls)):
@@ -192,14 +192,14 @@ class Decoder:
 
             vec_visible_size = np.array(list(vld.size), dtype=np.int32)
 
-            self.decoder_generate_errors_kernel(cq, (vld.size[0], vld.size[1], vld.size[2] * vld.size[3]), (1, 1, vld.size[2]),
+            self.decoder_generate_errors_kernel(cq, (vld.size[0], vld.size[1], vld.size[2]), (1, 1, vld.size[2]),
                     target_hidden_states.data, self.activations.data, vl.weights.data, errors.data,
                     vec_visible_size, vec_hidden_size, np.int32(vld.radius),
                     np.array([ math.ceil(diam * self.hidden_size[0] / vld.size[0] * 0.5), math.ceil(diam * self.hidden_size[1] / vld.size[1] * 0.5) ], np.int32),
                     np.int32(diam),
                     np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
                     np.array([ self.hidden_size[0] / vld.size[0], self.hidden_size[1] / vld.size[1] ], dtype=np.float32),
-                    np.int32(history_pos), np.int32(target_pos), np.int32(target_temporal_horizon))
+                    np.int32(target_pos), np.int32(target_temporal_horizon))
 
     def write(self, grp: h5py.Group):
         grp.attrs['hidden_size'] = np.void(pickle.dumps(self.hidden_size))

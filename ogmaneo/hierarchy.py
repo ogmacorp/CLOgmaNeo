@@ -68,10 +68,10 @@ class Hierarchy:
 
                         if io_descs[j].t == IOType.PREDICTION:
                             if i < len(lds) - 1:
-                                d_vlds = [ Decoder.VisibleLayerDesc(size=(lds[i].hidden_size[0], lds[i].hidden_size[1], lds[i].hidden_size[2], 1), radius=io_descs[j].d_radius, is_dense=True),
-                                        Decoder.VisibleLayerDesc(size=(lds[i].hidden_size[0], lds[i].hidden_size[1], lds[i].hidden_size[2], 1), radius=io_descs[j].d_radius, is_dense=False) ]
+                                d_vlds = [ Decoder.VisibleLayerDesc(size=lds[i].hidden_size, radius=io_descs[j].d_radius, is_dense=True),
+                                        Decoder.VisibleLayerDesc(size=lds[i].hidden_size, radius=io_descs[j].d_radius, is_dense=False) ]
                             else:
-                                d_vlds = [ Decoder.VisibleLayerDesc(size=(lds[i].hidden_size[0], lds[i].hidden_size[1], lds[i].hidden_size[2], 1), radius=io_descs[j].d_radius, is_dense=True) ]
+                                d_vlds = [ Decoder.VisibleLayerDesc(size=lds[i].hidden_size, radius=io_descs[j].d_radius, is_dense=True) ]
 
                             io_decoders.append(Decoder(cq, prog, (io_descs[j].size[0], io_descs[j].size[1], io_descs[j].size[2], 1), d_vlds))
                         else:
@@ -89,10 +89,10 @@ class Hierarchy:
                     e_vlds = [ Encoder.VisibleLayerDesc(size=(lds[i - 1].hidden_size[0], lds[i - 1].hidden_size[1], lds[i - 1].hidden_size[2], lds[i].temporal_horizon), radius=lds[i].e_radius) ]
 
                     if i < len(lds) - 1:
-                        d_vlds = [ Decoder.VisibleLayerDesc(size=(lds[i].hidden_size[0], lds[i].hidden_size[1], lds[i].hidden_size[2], 1), radius=lds[i].d_radius, is_dense=True),
-                                Decoder.VisibleLayerDesc(size=(lds[i].hidden_size[0], lds[i].hidden_size[1], lds[i].hidden_size[2], 1), radius=lds[i].d_radius, is_dense=False) ]
+                        d_vlds = [ Decoder.VisibleLayerDesc(size=lds[i].hidden_size, radius=lds[i].d_radius, is_dense=True),
+                                Decoder.VisibleLayerDesc(size=lds[i].hidden_size, radius=lds[i].d_radius, is_dense=False) ]
                     else:
-                        d_vlds = [ Decoder.VisibleLayerDesc(size=(lds[i].hidden_size[0], lds[i].hidden_size[1], lds[i].hidden_size[2], 1), radius=lds[i].d_radius, is_dense=True) ]
+                        d_vlds = [ Decoder.VisibleLayerDesc(size=lds[i].hidden_size, radius=lds[i].d_radius, is_dense=True) ]
 
                     temporal_decoders = [ Decoder(cq, prog, (lds[i - 1].hidden_size[0], lds[i - 1].hidden_size[1], lds[i - 1].hidden_size[2], lds[i].ticks_per_update), d_vlds) ]
 
@@ -201,9 +201,9 @@ class Hierarchy:
                         if self.decoders[i][j] is None:
                             continue
 
-                        self.decoders[i][j].generate_errors(cq, self.errors[i], input_states[j], 0, 0, 1)
+                        self.decoders[i][j].generate_errors(cq, self.errors[i], input_states[j], 0, self.lds[i].temporal_horizon)
                 else:
-                    self.decoders[i][0].generate_errors(cq, self.errors[i], self.histories[i][0], 0, self.history_pos[i], self.lds[i].temporal_horizon)
+                    self.decoders[i][0].generate_errors(cq, self.errors[i], self.histories[i][0], self.history_pos[i], self.lds[i].temporal_horizon)
 
                 self.encoders[i].step(cq, encoder_visible_states, self.errors[i], self.history_pos[i], learn_enabled)
 
@@ -244,9 +244,9 @@ class Hierarchy:
                         if self.decoders[i][j] is None:
                             continue
 
-                        self.decoders[i][j].step(cq, decoder_visible_states, input_states[j], 0, 0, 1, learn_enabled)
+                        self.decoders[i][j].step(cq, decoder_visible_states, input_states[j], 0, self.lds[i].temporal_horizon, learn_enabled)
                 else:
-                    self.decoders[i][0].step(cq, decoder_visible_states, self.histories[i][0], 0, self.history_pos[i], self.lds[i].temporal_horizon, learn_enabled)
+                    self.decoders[i][0].step(cq, decoder_visible_states, self.histories[i][0], self.history_pos[i], self.lds[i].temporal_horizon, learn_enabled)
 
     def get_predicted_states(self, i) -> cl.array.Array:
         assert(self.decoders[0][i] is not None)
