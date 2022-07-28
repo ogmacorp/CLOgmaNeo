@@ -108,7 +108,9 @@ class Decoder:
         self.accum_dense_activations_kernel = prog.accum_dense_activations
         self.sparse_activations_kernel = prog.sparse_activations
         self.dense_clamped_activations_kernel = prog.dense_clamped_activations
-        self.decoder_learn_kernel = prog.decoder_learn
+        self.decoder_sparse_learn_kernel = prog.decoder_sparse_learn
+        self.decoder_dense_learn_kernel = prog.decoder_dense_learn
+        self.decoder_generate_errors_kernel = prog.decoder_generate_errors
 
     def step(self, cq: cl.CommandQueue, visible_states: [ cl.array.Array ], target_hidden_states: cl.array.Array, history_pos: int, target_pos: int, target_temporal_horizon: int, learn_enabled: bool = True):
         assert(len(visible_states) == len(self.vls))
@@ -124,12 +126,20 @@ class Decoder:
 
                 vec_visible_size = np.array(list(vld.size), dtype=np.int32)
 
-                self.decoder_learn_kernel(cq, (self.hidden_size[0], self.hidden_size[1], self.hidden_size[2] * self.hidden_size[3]), (1, 1, self.hidden_size[2]),
-                        vl.visible_states_prev.data, target_hidden_states.data, self.activations.data, vl.weights.data, 
-                        vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
-                        np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
-                        np.int32(history_pos), np.int32(target_pos), np.int32(target_temporal_horizon),
-                        np.float32(self.lr))
+                if vld.is_dense:
+                    self.decoder_dense_learn_kernel(cq, (self.hidden_size[0], self.hidden_size[1], self.hidden_size[2] * self.hidden_size[3]), (1, 1, self.hidden_size[2]),
+                            vl.visible_states_prev.data, target_hidden_states.data, self.activations.data, vl.weights.data, 
+                            vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
+                            np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
+                            np.int32(history_pos), np.int32(target_pos), np.int32(target_temporal_horizon),
+                            np.float32(self.lr))
+                else:
+                    self.decoder_sparse_learn_kernel(cq, (self.hidden_size[0], self.hidden_size[1], self.hidden_size[2] * self.hidden_size[3]), (1, 1, self.hidden_size[2]),
+                            vl.visible_states_prev.data, target_hidden_states.data, self.activations.data, vl.weights.data, 
+                            vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
+                            np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
+                            np.int32(history_pos), np.int32(target_pos), np.int32(target_temporal_horizon),
+                            np.float32(self.lr))
 
         # Clear
         self.activations.fill(np.float32(0))
@@ -171,7 +181,7 @@ class Decoder:
 
             vl.visible_states_prev[:] = visible_states[i][:]
 
-    def generate_errors(self, cq: cl.CommandQueue, target_hidden_states: cl.array.Array, history_pos: int, target_pos: int, target_temporal_horizon: int):
+    def generate_errors(self, cq: cl.CommandQueue, errors: cl.array.Array, target_hidden_states: cl.array.Array, history_pos: int, target_pos: int, target_temporal_horizon: int):
         for i in range(len(self.vls)):
             vld = self.vlds[i]
             vl = self.vls[i]
@@ -180,8 +190,8 @@ class Decoder:
 
             vec_visible_size = np.array(list(vld.size), dtype=np.int32)
 
-            self.encoder_learn_kernel(cq, (vld.size[0], vld.size[1], vld.size[2] * vld.size[3]), (1, 1, vld.size[2]),
-                    visible_states[i].data, self.hidden_states.data, vl.weights.data, vl.reconstruction.data,
+            self.decoder_generate_errors_kernel(cq, (vld.size[0], vld.size[1], vld.size[2] * vld.size[3]), (1, 1, vld.size[2]),
+                    vl.visible_states_prev[i].data, self.hidden_states.data, vl.weights.data, errors.data,
                     vec_visible_size, vec_hidden_size, np.int32(vld.radius),
                     np.array([ math.ceil(diam * self.hidden_size[0] / vld.size[0] * 0.5), math.ceil(diam * self.hidden_size[1] / vld.size[1] * 0.5) ], np.int32),
                     np.int32(diam),

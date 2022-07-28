@@ -258,7 +258,7 @@ __kernel void encoder_learn(
     int radius,
     int diam,
     float2 h_to_v,
-    int history_pos
+    int history_pos,
     float lr,
     float reg
 ) {
@@ -279,6 +279,11 @@ __kernel void encoder_learn(
     __local int num_visible_columns;
 
     __local int num_non_zero_activations;
+
+    int gt = get_global_id(2) / hidden_size.z;
+    int gc = get_global_id(2) % hidden_size.z;
+
+    barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 
     // Pre-compute for work group
     if (get_local_id(2) == 0) {
@@ -309,9 +314,6 @@ __kernel void encoder_learn(
 
     barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 
-    int gt = get_global_id(2) / hidden_size.z;
-    int gc = get_global_id(2) % hidden_size.z;
-
     int hidden_cell_index = gt + hidden_size.w * (gc + hidden_size.z * hidden_column_index);
 
     float activation = activations[hidden_cell_index];
@@ -319,7 +321,7 @@ __kernel void encoder_learn(
     if (activation == 0.0f)
         return;
 
-    float delta = lr * (errors[hidden_cell_index] * (1.0f - activation * activation) - reg * tanh(num_non_zero_activations - 1.0f);
+    float delta = lr * (errors[hidden_cell_index] * (1.0f - activation * activation) - reg * tanh(num_non_zero_activations - 1.0f));
 
     for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
         for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
@@ -523,13 +525,13 @@ __kernel void decoder_dense_learn(
         }
 }
 
-__kernel void decoder_backward(
+__kernel void decoder_generate_errors(
     __global const int* target_hidden_states,
     __global const float* activations,
     __global const float* weights,
     __global float* errors,
     int4 visible_size,
-    int3 hidden_size,
+    int4 hidden_size,
     int radius,
     int2 reverse_radii,
     int diam,
@@ -554,6 +556,7 @@ __kernel void decoder_backward(
     __local int max_index;
     __local float max_activation;
 
+    __local int num_hidden_columns;
     __local int num_visible_columns;
 
     // Pre-compute for work group
@@ -573,6 +576,7 @@ __kernel void decoder_backward(
         max_index = 0;
         max_activation = -999999.0f;
 
+        num_hidden_columns = hidden_size.x * hidden_size.y;
         num_visible_columns = visible_size.x * visible_size.y;
     }
 
@@ -582,8 +586,6 @@ __kernel void decoder_backward(
     int gc = get_global_id(2) % visible_size.z;
 
     int gslice = (history_pos + gt) % visible_size.w;
-
-    int target_state = visible_states[visible_column_index + num_visible_columns * gslice];
 
     int temporal_visible_cell_index = gt + visible_size.w * (gc + visible_size.z * visible_column_index);
 
@@ -595,8 +597,6 @@ __kernel void decoder_backward(
             int2 hidden_column_pos = (int2)(ix, iy);
 
             int hidden_column_index = iy + hidden_size.y * ix;
-
-            int hidden_state = hidden_states[hidden_column_index];
 
             // Project
             int2 visible_center = (int2)((hidden_column_pos.x + 0.5f) * h_to_v.x, (hidden_column_pos.y + 0.5f) * h_to_v.y);
@@ -610,12 +610,14 @@ __kernel void decoder_backward(
                 for (int t = 0; t < hidden_size.w; t++) {
                     int slice = (target_pos + t) % target_temporal_horizon;
 
+                    int target_hidden_state = target_hidden_states[hidden_column_index + slice * num_hidden_columns];
+
                     for (int c = 0; c < hidden_size.z; c++) {
                         int hidden_cell_index = slice + hidden_size.w * (c + hidden_size.z * hidden_column_index);
 
                         int wi = gt + visible_size.w * (gc + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_cell_index)));
 
-                        sum += weights[wi] * ((c == hidden_state) - activations[hidden_cell_index]);
+                        sum += weights[wi] * ((c == target_hidden_state) - activations[hidden_cell_index]);
                     }
 
                     count++;

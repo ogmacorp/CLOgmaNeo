@@ -191,9 +191,9 @@ class Hierarchy:
                         if self.decoders[i][j] is None:
                             continue
 
-                        self.decoders[i][j].generate_errors(cq, input_states[j], 0, 0, 1)
+                        self.decoders[i][j].generate_errors(cq, self.errors[i], input_states[j], 0, 0, 1)
                 else:
-                    self.decoders[i][0].generate_errors(cq, self.histories[i][0], 0, self.history_pos[i], self.lds[i].temporal_horizon)
+                    self.decoders[i][0].generate_errors(cq, self.errors[i], self.histories[i][0], 0, self.history_pos[i], self.lds[i].temporal_horizon)
 
                 self.encoders[i].step(cq, encoder_visible_states, self.errors[i], self.history_pos[i], learn_enabled)
 
