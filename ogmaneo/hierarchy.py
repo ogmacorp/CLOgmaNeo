@@ -150,7 +150,7 @@ class Hierarchy:
 
                 self.histories.append(io_history)
 
-                self.errors.append(cl.array.empty(cq, (self.lds[i].hidden_size[0] * self.lds[i].hidden_size[1] * self.lds[i].hidden_size[2],), dtype=np.int32))
+                self.errors.append(cl.array.empty(cq, (self.lds[i].hidden_size[0] * self.lds[i].hidden_size[1] * self.lds[i].hidden_size[2],), dtype=np.float32))
 
             self.ticks = pickle.loads(grp.attrs['ticks'].tobytes())
             self.ticks_per_update = pickle.loads(grp.attrs['ticks_per_update'].tobytes())
