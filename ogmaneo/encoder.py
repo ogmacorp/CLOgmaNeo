@@ -147,7 +147,7 @@ class Encoder:
                 vec_hidden_size,
                 np.float32(1.0 / len(self.vls)))
 
-        self.dense_tanh_activations_kernel(cq, (self.hidden_size[0], self.hidden_size[1], 1), None, self.activations.data,
+        self.dense_tanh_activations_kernel(cq, self.hidden_size, None, self.activations.data,
                 vec_hidden_size,
                 np.float32(1.0)) # No scaling, as we did that in the previous activation step
 
