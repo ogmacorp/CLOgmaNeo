@@ -190,7 +190,8 @@ class Decoder:
 
             diam = vld.radius * 2 + 1
 
-            vec_visible_size = np.array(list(vld.size), dtype=np.int32)
+            # Pad 3-vecs to 4-vecs
+            vec_visible_size = np.array(list(vld.size) + [ 1 ], dtype=np.int32)
 
             self.decoder_generate_errors_kernel(cq, (vld.size[0], vld.size[1], vld.size[2]), (1, 1, vld.size[2]),
                     target_hidden_states.data, self.activations.data, vl.weights.data, errors.data,
