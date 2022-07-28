@@ -183,26 +183,25 @@ class Decoder:
 
             vl.visible_states_prev[:] = visible_states[i][:]
 
-    def generate_errors(self, cq: cl.CommandQueue, errors: cl.array.Array, target_hidden_states: cl.array.Array, target_pos: int, target_temporal_horizon: int):
+    def generate_errors(self, i: int, cq: cl.CommandQueue, errors: cl.array.Array, target_hidden_states: cl.array.Array, target_pos: int, target_temporal_horizon: int):
         vec_hidden_size = np.array(list(self.hidden_size), dtype=np.int32)
 
-        for i in range(len(self.vls)):
-            vld = self.vlds[i]
-            vl = self.vls[i]
+        vld = self.vlds[i]
+        vl = self.vls[i]
 
-            diam = vld.radius * 2 + 1
+        diam = vld.radius * 2 + 1
 
-            # Pad 3-vecs to 4-vecs
-            vec_visible_size = np.array(list(vld.size) + [ 1 ], dtype=np.int32)
+        # Pad 3-vecs to 4-vecs
+        vec_visible_size = np.array(list(vld.size) + [ 1 ], dtype=np.int32)
 
-            self.decoder_generate_errors_kernel(cq, vld.size, (1, 1, vld.size[2]),
-                    target_hidden_states.data, self.activations.data, vl.weights.data, errors.data,
-                    vec_visible_size, vec_hidden_size, np.int32(vld.radius),
-                    np.array([ math.ceil(diam * self.hidden_size[0] / vld.size[0] * 0.5), math.ceil(diam * self.hidden_size[1] / vld.size[1] * 0.5) ], np.int32),
-                    np.int32(diam),
-                    np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
-                    np.array([ self.hidden_size[0] / vld.size[0], self.hidden_size[1] / vld.size[1] ], dtype=np.float32),
-                    np.int32(target_pos), np.int32(target_temporal_horizon))
+        self.decoder_generate_errors_kernel(cq, vld.size, (1, 1, vld.size[2]),
+                target_hidden_states.data, self.activations.data, vl.weights.data, errors.data,
+                vec_visible_size, vec_hidden_size, np.int32(vld.radius),
+                np.array([ math.ceil(diam * self.hidden_size[0] / vld.size[0] * 0.5), math.ceil(diam * self.hidden_size[1] / vld.size[1] * 0.5) ], np.int32),
+                np.int32(diam),
+                np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
+                np.array([ self.hidden_size[0] / vld.size[0], self.hidden_size[1] / vld.size[1] ], dtype=np.float32),
+                np.int32(target_pos), np.int32(target_temporal_horizon))
 
     def write(self, grp: h5py.Group):
         grp.attrs['hidden_size'] = np.void(pickle.dumps(self.hidden_size))
