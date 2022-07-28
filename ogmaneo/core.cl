@@ -608,10 +608,10 @@ __kernel void decoder_backward(
                 int2 offset = (int2)(visible_column_pos.x - visible_center.x + radius, visible_column_pos.y - visible_center.y + radius);
 
                 for (int t = 0; t < hidden_size.w; t++) {
-                    int slice = (target_pos + t) % hidden_size.w;
+                    int slice = (target_pos + t) % target_temporal_horizon;
 
                     for (int c = 0; c < hidden_size.z; c++) {
-                        int hidden_cell_index = t + hidden_size.w * (c + hidden_size.z * hidden_column_index);
+                        int hidden_cell_index = slice + hidden_size.w * (c + hidden_size.z * hidden_column_index);
 
                         int wi = gt + visible_size.w * (gc + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_cell_index)));
 
