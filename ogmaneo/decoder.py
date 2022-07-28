@@ -159,12 +159,14 @@ class Decoder:
                 self.accum_dense_activations_kernel(cq, (self.hidden_size[0], self.hidden_size[1], self.hidden_size[2] * self.hidden_size[3]), (1, 1, self.hidden_size[2]),
                         visible_states[i].data, vl.weights.data, self.activations.data,
                         vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
-                        np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32))
+                        np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
+                        np.int32(0))
             else: # Sparse
                 self.accum_sparse_activations_kernel(cq, (self.hidden_size[0], self.hidden_size[1], self.hidden_size[2] * self.hidden_size[3]), (1, 1, self.hidden_size[2]),
                         visible_states[i].data, vl.weights.data, self.activations.data,
                         vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
-                        np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32))
+                        np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
+                        np.int32(0))
 
         self.sparse_activations_kernel(cq, (self.hidden_size[0], self.hidden_size[1], self.hidden_size[3]), None, self.activations.data, self.hidden_states.data,
                 vec_hidden_size,
