@@ -101,7 +101,7 @@ class Encoder:
         self.dense_tanh_activations_kernel = prog.dense_tanh_activations
         self.encoder_learn_kernel = prog.encoder_learn
 
-    def step(self, cq: cl.CommandQueue, visible_states: [ cl.array.Array ], history_pos: int, errors: cl.array.Array, learn_enabled: bool = True):
+    def step(self, cq: cl.CommandQueue, visible_states: [ cl.array.Array ], errors: cl.array.Array, history_pos: int, learn_enabled: bool = True):
         assert(len(visible_states) == len(self.vls))
 
         if learn_enabled:

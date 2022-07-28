@@ -66,9 +66,10 @@ class Hierarchy:
                         io_history.append(cl.array.zeros(cq, (num_io_columns * lds[i].temporal_horizon,), np.int32))
 
                         if io_descs[j].t == IOType.PREDICTION:
-                            d_vld = Decoder.VisibleLayerDesc(size=(lds[i].hidden_size[0], lds[i].hidden_size[1], lds[i].hidden_size[2], 2 if i < len(lds) - 1 else 1), radius=io_descs[j].d_radius)
+                            d_vlds = [ Decoder.VisibleLayerDesc(size=(lds[i].hidden_size[0], lds[i].hidden_size[1], lds[i].hidden_size[2], 1), radius=io_descs[j].d_radius, is_dense=True),
+                                    Decoder.VisibleLayerDesc(size=(lds[i].hidden_size[0], lds[i].hidden_size[1], lds[i].hidden_size[2], 1), radius=io_descs[j].d_radius, is_dense=False) ]
 
-                            io_decoders.append(Decoder(cq, prog, (io_descs[j].size[0], io_descs[j].size[1], io_descs[j].size[2], 1), [ d_vld ]))
+                            io_decoders.append(Decoder(cq, prog, (io_descs[j].size[0], io_descs[j].size[1], io_descs[j].size[2], 1), d_vlds))
                         else:
                             io_decoders.append(None) # Mark no decoder
 
@@ -83,9 +84,10 @@ class Hierarchy:
 
                     e_vlds = [ Encoder.VisibleLayerDesc(size=(lds[i - 1].hidden_size[0], lds[i - 1].hidden_size[1], lds[i - 1].hidden_size[2], lds[i].temporal_horizon), radius=lds[i].e_radius) ]
 
-                    d_vld = Decoder.VisibleLayerDesc(size=(lds[i].hidden_size[0], lds[i].hidden_size[1], lds[i].hidden_size[2], 2 if i < len(lds) - 1 else 1), radius=lds[i].d_radius)
+                    d_vlds = [ Decoder.VisibleLayerDesc(size=(lds[i].hidden_size[0], lds[i].hidden_size[1], lds[i].hidden_size[2], 1), radius=lds[i].d_radius, is_dense=True),
+                            Decoder.VisibleLayerDesc(size=(lds[i].hidden_size[0], lds[i].hidden_size[1], lds[i].hidden_size[2], 1), radius=lds[i].d_radius, is_dense=False) ]
 
-                    temporal_decoders = [ Decoder(cq, prog, (lds[i - 1].hidden_size[0], lds[i - 1].hidden_size[1], lds[i - 1].hidden_size[2], lds[i].ticks_per_update), [ d_vld ]) ]
+                    temporal_decoders = [ Decoder(cq, prog, (lds[i - 1].hidden_size[0], lds[i - 1].hidden_size[1], lds[i - 1].hidden_size[2], lds[i].ticks_per_update), d_vlds) ]
 
                     self.decoders.append(temporal_decoders)
 
@@ -181,7 +183,19 @@ class Hierarchy:
 
                 encoder_visible_states = self.histories[i]
 
-                self.encoders[i].step(cq, encoder_visible_states, self.history_pos[i], learn_enabled)
+                # Accumulate errors
+                self.errors[i].fill(np.float32(0))
+
+                if i == 0:
+                    for j in range(len(self.io_descs)):
+                        if self.decoders[i][j] is None:
+                            continue
+
+                        self.decoders[i][j].generate_errors(cq, input_states[j], 0, 0, 1)
+                else:
+                    self.decoders[i][0].generate_errors(cq, self.histories[i][0], 0, self.history_pos[i], self.lds[i].temporal_horizon)
+
+                self.encoders[i].step(cq, encoder_visible_states, self.errors[i], self.history_pos[i], learn_enabled)
 
                 # If there is a higher layer
                 if i < len(self.encoders) - 1:
@@ -206,14 +220,7 @@ class Hierarchy:
                 decoder_visible_states = []
 
                 if i < len(self.lds) - 1:
-                    self.complete_states[i][: len(self.encoders[i].hidden_states)] = self.encoders[i].hidden_states[:]
-
-                    num_hidden_columns = self.lds[i].hidden_size[0] * self.lds[i].hidden_size[1]
-                    destride_index = self.ticks_per_update[i + 1] - 1 - self.ticks[i + 1]
-
-                    self.complete_states[i][len(self.encoders[i].hidden_states) :] = self.decoders[i + 1][0].hidden_states[num_hidden_columns * destride_index : num_hidden_columns * (destride_index + 1)][:]
-
-                    decoder_visible_states = [ self.complete_states[i] ]
+                    decoder_visible_states = [ self.complete_states[i], self.decoders[i + 1][0].hidden_states[num_hidden_columns * destride_index : num_hidden_columns * (destride_index + 1)][:] ]
                 else:
                     decoder_visible_states = [ self.encoders[i].hidden_states ]
 
