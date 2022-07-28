@@ -220,7 +220,7 @@ class Hierarchy:
                 decoder_visible_states = []
 
                 if i < len(self.lds) - 1:
-                    decoder_visible_states = [ self.complete_states[i], self.decoders[i + 1][0].hidden_states[num_hidden_columns * destride_index : num_hidden_columns * (destride_index + 1)][:] ]
+                    decoder_visible_states = [ self.encoders[i].hidden_states, self.decoders[i + 1][0].hidden_states[num_hidden_columns * destride_index : num_hidden_columns * (destride_index + 1)][:] ]
                 else:
                     decoder_visible_states = [ self.encoders[i].hidden_states ]
 
