@@ -6,12 +6,6 @@
 //  in the CLOGMANEO_LICENSE.md file included in this distribution.
 // ----------------------------------------------------------------------------
 
-// --- Helpers ---
-
-__inline float sigmoid(float x) {
-    return tanh(x * 0.5f) * 0.5f + 0.5f;
-}
-
 // --- Core SPH ---
 
 __kernel void accum_sparse_activations(
@@ -225,9 +219,7 @@ __kernel void dense_tanh_activations(
 
     int cell_index = gt + size.w * (gc + size.z * column_index);
 
-    activations[cell_index] *= scale;
-
-    activations[cell_index] = tanh(max(0.0f, activations[cell_index]));
+    activations[cell_index] = tanh(max(0.0f, activations[cell_index] * scale));
 }
 
 __kernel void dense_clamped_activations(
@@ -243,9 +235,7 @@ __kernel void dense_clamped_activations(
 
     int cell_index = gt + size.w * (gc + size.z * column_index);
 
-    activations[cell_index] *= scale;
-
-    activations[cell_index] = min(1.0f, max(0.0f, activations[cell_index]));
+    activations[cell_index] = min(1.0f, max(0.0f, activations[cell_index] * scale));
 }
 
 __kernel void encoder_learn(
@@ -404,7 +394,7 @@ __kernel void decoder_sparse_learn(
 
     int hidden_cell_index = gt + hidden_size.w * (gc + hidden_size.z * hidden_column_index);
 
-    float delta = lr * ((gc == target_state) - sigmoid(activations[hidden_cell_index]));
+    float delta = lr * ((gc == target_state) - activations[hidden_cell_index]);
 
     for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
         for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
