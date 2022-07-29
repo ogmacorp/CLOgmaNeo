@@ -50,7 +50,7 @@ class Decoder:
                 area = diam * diam
                 num_weights = num_hidden_cells * area * vld.size[2]
 
-                vl.weights = cl.clrandom.rand(cq, (num_weights,), np.float32, a=-0.01, b=0.01)
+                vl.weights = cl.clrandom.rand(cq, (num_weights,), np.float32, a=0.0, b=0.01)
 
                 if vld.is_dense:
                     vl.visible_states_prev = cl.array.zeros(cq, (num_visible_cells,), np.float32)
