@@ -529,9 +529,6 @@ __kernel void decoder_generate_errors(
     __local int2 iter_lower_bound;
     __local int2 iter_upper_bound;
 
-    __local int max_index;
-    __local float max_activation;
-
     __local int num_hidden_columns;
     __local int num_visible_columns;
 
@@ -548,9 +545,6 @@ __kernel void decoder_generate_errors(
         
         iter_lower_bound = (int2)(max(0, field_lower_bound.x), max(0, field_lower_bound.y));
         iter_upper_bound = (int2)(min(hidden_size.x - 1, hidden_center.x + reverse_radii.x), min(hidden_size.y - 1, hidden_center.y + reverse_radii.y));
-
-        max_index = 0;
-        max_activation = -999999.0f;
 
         num_hidden_columns = hidden_size.x * hidden_size.y;
         num_visible_columns = visible_size.x * visible_size.y;
