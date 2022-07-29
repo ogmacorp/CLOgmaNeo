@@ -60,7 +60,7 @@ class Decoder:
                 self.vls.append(vl)
 
             # Hyperparameters
-            self.lr = 0.1
+            self.lr = 0.5
 
         else: # Load from h5py group
             self.hidden_size = pickle.loads(grp.attrs['hidden_size'].tobytes())
