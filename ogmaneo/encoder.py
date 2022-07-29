@@ -116,7 +116,7 @@ class Encoder:
 
                 vec_visible_size = np.array(list(vld.size), dtype=np.int32)
 
-                self.encoder_learn_kernel(cq, (vld.size[0], vld.size[1], vld.size[2] * vld.size[3]), (1, 1, vld.size[2]),
+                self.encoder_learn_kernel(cq, self.hidden_size, (1, 1, self.hidden_size[2]),
                         visible_states[i].data, self.activations.data, errors.data, vl.weights.data, 
                         vec_visible_size, vec_hidden_size, np.int32(vld.radius),
                         np.int32(diam),

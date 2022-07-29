@@ -254,7 +254,7 @@ __kernel void encoder_learn(
     __global const float* errors,
     __global float* weights,
     int4 visible_size,
-    int4 hidden_size,
+    int3 hidden_size,
     int radius,
     int diam,
     float2 h_to_v,
@@ -280,11 +280,6 @@ __kernel void encoder_learn(
 
     __local int num_non_zero_activations;
 
-    int gt = get_global_id(2) / hidden_size.z;
-    int gc = get_global_id(2) % hidden_size.z;
-
-    barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
-
     // Pre-compute for work group
     if (get_local_id(2) == 0) {
         hidden_column_pos = (int2)(get_global_id(0), get_global_id(1));
@@ -305,7 +300,7 @@ __kernel void encoder_learn(
 
         // Find number of non-zero activations
         for (int c = 0; c < hidden_size.z; c++) {
-            int hidden_cell_index = gt + hidden_size.w * (c + hidden_size.z * hidden_column_index);
+            int hidden_cell_index = c + hidden_size.z * hidden_column_index;
 
             if (activations[hidden_cell_index] > 0.0f)
                 num_non_zero_activations++;
@@ -314,7 +309,9 @@ __kernel void encoder_learn(
 
     barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 
-    int hidden_cell_index = gt + hidden_size.w * (gc + hidden_size.z * hidden_column_index);
+    int gc = get_global_id(2);
+
+    int hidden_cell_index = gc + hidden_size.z * hidden_column_index;
 
     float activation = activations[hidden_cell_index];
 
