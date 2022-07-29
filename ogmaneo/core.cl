@@ -219,7 +219,7 @@ __kernel void dense_tanh_activations(
 
     int cell_index = gt + size.w * (gc + size.z * column_index);
 
-    activations[cell_index] = tanh(max(0.0f, activations[cell_index] * scale));
+    activations[cell_index] = max(0.0f, tanh(activations[cell_index] * scale));
 }
 
 __kernel void dense_clamped_activations(
@@ -264,8 +264,6 @@ __kernel void encoder_learn(
     __local int2 iter_lower_bound;
     __local int2 iter_upper_bound;
 
-    __local int count;
-
     __local int num_visible_columns;
 
     __local int num_non_zero_activations;
@@ -283,8 +281,6 @@ __kernel void encoder_learn(
         
         iter_lower_bound = (int2)(max(0, field_lower_bound.x), max(0, field_lower_bound.y));
         iter_upper_bound = (int2)(min(visible_size.x - 1, visible_center.x + radius), min(visible_size.y - 1, visible_center.y + radius));
-
-        count = (iter_upper_bound.x - iter_lower_bound.x + 1) * (iter_upper_bound.y - iter_lower_bound.y + 1) * visible_size.w;
 
         num_visible_columns = visible_size.x * visible_size.y;
 
@@ -587,8 +583,9 @@ __kernel void decoder_generate_errors(
                         sum += weights[wi] * ((c == target_hidden_state) - activations[hidden_cell_index]);
                     }
 
-                    count++;
                 }
+
+                count += hidden_size.w;
             }
         }
 
