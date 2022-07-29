@@ -318,7 +318,7 @@ __kernel void encoder_learn(
     if (activation == 0.0f)
         return;
 
-    float delta = lr * (errors[hidden_cell_index] * (1.0f - activation * activation) - reg * tanh(num_non_zero_activations - 1.0f));
+    float delta = lr * (errors[hidden_cell_index] * (1.0f - activation * activation) - tanh(reg * max(0.0f, num_non_zero_activations - 1.0f)));
 
     for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
         for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
