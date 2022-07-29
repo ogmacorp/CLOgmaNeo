@@ -56,6 +56,8 @@ class Encoder:
 
                 self.vls.append(vl)
 
+            self.history_pos_prev = 0
+
             # Hyperparameters
             self.lr = 0.1
             self.reg = 0.01
@@ -96,11 +98,11 @@ class Encoder:
 
                 self.vls.append(vl)
 
+            self.history_pos_prev = pickle.loads(grp.attrs['history_pos_prev'].tobytes())
+
             # Hyperparameters
             self.lr = pickle.loads(grp.attrs['lr'].tobytes())
             self.reg = pickle.loads(grp.attrs['reg'].tobytes())
-
-        self.history_pos_prev = 0
 
         # Kernels
         self.accum_sparse_activations_kernel = prog.accum_sparse_activations
@@ -178,6 +180,8 @@ class Encoder:
         for i in range(len(self.vls)):
             grp.create_dataset('weights' + str(i), data=self.vls[i].weights.get())
             grp.create_dataset('visible_states_prev' + str(i), data=self.vls[i].visible_states_prev.get())
+
+        grp.attrs['history_pos_prev'] = np.void(pickle.dumps(self.history_pos_prev))
 
         grp.attrs['lr'] = np.void(pickle.dumps(self.lr))
         grp.attrs['reg'] = np.void(pickle.dumps(self.reg))
