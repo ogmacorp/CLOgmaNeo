@@ -202,7 +202,7 @@ class Hierarchy:
                             if self.decoders[i][j] is None:
                                 continue
 
-                            self.decoders[i][j].generate_errors(cq, 0, self.errors[i], input_states[j], 0, self.lds[i].temporal_horizon)
+                            self.decoders[i][j].generate_errors(cq, 0, self.errors[i], input_states[j], 0, 1)
                     else:
                         self.decoders[i][0].generate_errors(cq, 0, self.errors[i], self.histories[i][0], self.history_pos[i], self.lds[i].temporal_horizon)
 
@@ -245,7 +245,7 @@ class Hierarchy:
                         if self.decoders[i][j] is None:
                             continue
 
-                        self.decoders[i][j].step(cq, decoder_visible_states, input_states[j], 0, self.lds[i].temporal_horizon, learn_enabled)
+                        self.decoders[i][j].step(cq, decoder_visible_states, input_states[j], 0, 1, learn_enabled)
                 else:
                     self.decoders[i][0].step(cq, decoder_visible_states, self.histories[i][0], self.history_pos[i], self.lds[i].temporal_horizon, learn_enabled)
 
