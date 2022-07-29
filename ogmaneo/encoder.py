@@ -100,6 +100,8 @@ class Encoder:
             self.lr = pickle.loads(grp.attrs['lr'].tobytes())
             self.reg = pickle.loads(grp.attrs['reg'].tobytes())
 
+        self.history_pos_prev = 0
+
         # Kernels
         self.accum_sparse_activations_kernel = prog.accum_sparse_activations
         self.sparse_activations_kernel = prog.sparse_activations
@@ -126,7 +128,7 @@ class Encoder:
                         vec_visible_size, vec_hidden_size, np.int32(vld.radius),
                         np.int32(diam),
                         np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
-                        np.int32(history_pos),
+                        np.int32(self.history_pos_prev),
                         np.float32(self.lr),
                         np.float32(self.reg))
 
@@ -162,6 +164,8 @@ class Encoder:
             vl = self.vls[i]
 
             vl.visible_states_prev[:] = visible_states[i][:]
+
+        self.history_pos_prev = history_pos
 
     def write(self, grp: h5py.Group):
         grp.attrs['hidden_size'] = np.void(pickle.dumps(self.hidden_size))
