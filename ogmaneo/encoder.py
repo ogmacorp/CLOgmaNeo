@@ -52,6 +52,8 @@ class Encoder:
                 vl.weights = cl.clrandom.rand(cq, (num_weights,), np.float32, a=-1.0, b=1.0)
                 vl.reconstruction = cl.array.empty(cq, (num_visible_cells,), np.float32)
 
+                vl.visible_states_prev = cl.array.zeros(cq, (num_visible_columns,), np.int32)
+
                 self.vls.append(vl)
 
             # Hyperparameters
@@ -89,6 +91,9 @@ class Encoder:
 
                 vl.weights.set(np.array(grp['weights' + str(i)][:], np.float32))
 
+                vl.visible_states_prev = cl.array.empty(cq, (num_visible_columns,), np.int32)
+                vl.visible_states_prev.set(np.array(grp['visible_states_prev' + str(i)][:], np.int32))
+
                 self.vls.append(vl)
 
             # Hyperparameters
@@ -117,7 +122,7 @@ class Encoder:
                 vec_visible_size = np.array(list(vld.size), dtype=np.int32)
 
                 self.encoder_learn_kernel(cq, self.hidden_size, (1, 1, self.hidden_size[2]),
-                        visible_states[i].data, self.activations.data, errors.data, vl.weights.data, 
+                        vl.visible_states_prev.data, self.activations.data, errors.data, vl.weights.data, 
                         vec_visible_size, vec_hidden_size, np.int32(vld.radius),
                         np.int32(diam),
                         np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
@@ -151,6 +156,13 @@ class Encoder:
                 vec_hidden_size,
                 np.float32(1.0)) # No scaling, as we did that in the previous activation step
 
+        # Copy to prevs
+        for i in range(len(self.vls)):
+            vld = self.vlds[i]
+            vl = self.vls[i]
+
+            vl.visible_states_prev[:] = visible_states[i][:]
+
     def write(self, grp: h5py.Group):
         grp.attrs['hidden_size'] = np.void(pickle.dumps(self.hidden_size))
 
@@ -161,9 +173,8 @@ class Encoder:
 
         for i in range(len(self.vls)):
             grp.create_dataset('weights' + str(i), data=self.vls[i].weights.get())
+            grp.create_dataset('visible_states_prev' + str(i), data=self.vls[i].visible_states_prev.get())
 
         grp.attrs['lr'] = np.void(pickle.dumps(self.lr))
         grp.attrs['reg'] = np.void(pickle.dumps(self.reg))
 
-
-        
