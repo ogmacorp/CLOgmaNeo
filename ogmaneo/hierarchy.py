@@ -193,17 +193,18 @@ class Hierarchy:
 
                 encoder_visible_states = self.histories[i]
 
-                # Accumulate errors
-                self.errors[i].fill(np.float32(0))
+                if learn_enabled:
+                    # Accumulate errors
+                    self.errors[i].fill(np.float32(0))
 
-                if i == 0:
-                    for j in range(len(self.io_descs)):
-                        if self.decoders[i][j] is None:
-                            continue
+                    if i == 0:
+                        for j in range(len(self.io_descs)):
+                            if self.decoders[i][j] is None:
+                                continue
 
-                        self.decoders[i][j].generate_errors(cq, 0, self.errors[i], input_states[j], 0, self.lds[i].temporal_horizon)
-                else:
-                    self.decoders[i][0].generate_errors(cq, 0, self.errors[i], self.histories[i][0], self.history_pos[i], self.lds[i].temporal_horizon)
+                            self.decoders[i][j].generate_errors(cq, 0, self.errors[i], input_states[j], 0, self.lds[i].temporal_horizon)
+                    else:
+                        self.decoders[i][0].generate_errors(cq, 0, self.errors[i], self.histories[i][0], self.history_pos[i], self.lds[i].temporal_horizon)
 
                 self.encoders[i].step(cq, encoder_visible_states, self.errors[i], self.history_pos[i], learn_enabled)
 

@@ -594,5 +594,5 @@ __kernel void decoder_generate_errors(
 
     sum /= max(1, count);
 
-    errors[visible_cell_index] = sum;
+    errors[visible_cell_index] += sum;
 }
