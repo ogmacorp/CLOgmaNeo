@@ -284,6 +284,8 @@ __kernel void encoder_learn(
 
         num_visible_columns = visible_size.x * visible_size.y;
 
+        num_non_zero_activations = 0;
+
         // Find number of non-zero activations
         for (int c = 0; c < hidden_size.z; c++) {
             int hidden_cell_index = c + hidden_size.z * hidden_column_index;
