@@ -222,22 +222,6 @@ __kernel void dense_tanh_activations(
     activations[cell_index] = max(0.0f, tanh(activations[cell_index] * scale));
 }
 
-__kernel void dense_clamped_activations(
-    __global float* activations,
-    int4 size,
-    float scale
-) {
-    int2 column_pos = (int2)(get_global_id(0), get_global_id(1));
-    int column_index = column_pos.y + size.y * column_pos.x;
-
-    int gt = get_global_id(2) / size.z;
-    int gc = get_global_id(2) % size.z;
-
-    int cell_index = gt + size.w * (gc + size.z * column_index);
-
-    activations[cell_index] = min(1.0f, max(0.0f, activations[cell_index] * scale));
-}
-
 __kernel void encoder_learn(
     __global const int* visible_states,
     __global const float* activations,
@@ -306,7 +290,7 @@ __kernel void encoder_learn(
     if (activation == 0.0f)
         return;
 
-    float delta = lr * (errors[hidden_cell_index] * (1.0f - activation * activation) - tanh(reg * max(0.0f, num_non_zero_activations - 1.0f)));
+    float delta = lr * (errors[hidden_cell_index] * (1.0f - activation * activation) - reg * (num_non_zero_activations > 1));
 
     for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
         for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {

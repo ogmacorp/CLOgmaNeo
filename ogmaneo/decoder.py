@@ -107,7 +107,7 @@ class Decoder:
         self.accum_sparse_activations_kernel = prog.accum_sparse_activations
         self.accum_dense_activations_kernel = prog.accum_dense_activations
         self.sparse_activations_kernel = prog.sparse_activations
-        self.dense_clamped_activations_kernel = prog.dense_clamped_activations
+        self.dense_tanh_activations_kernel = prog.dense_tanh_activations
         self.decoder_sparse_learn_kernel = prog.decoder_sparse_learn
         self.decoder_dense_learn_kernel = prog.decoder_dense_learn
         self.decoder_generate_errors_kernel = prog.decoder_generate_errors
@@ -172,7 +172,7 @@ class Decoder:
                 vec_hidden_size,
                 np.float32(1.0 / len(self.vls)))
 
-        self.dense_clamped_activations_kernel(cq, (self.hidden_size[0], self.hidden_size[1], self.hidden_size[2] * self.hidden_size[3]), None, self.activations.data,
+        self.dense_tanh_activations_kernel(cq, (self.hidden_size[0], self.hidden_size[1], self.hidden_size[2] * self.hidden_size[3]), None, self.activations.data,
                 vec_hidden_size,
                 np.float32(1.0)) # No scaling, as we did that in the previous activation step
 
