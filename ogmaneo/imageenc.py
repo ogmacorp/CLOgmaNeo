@@ -102,7 +102,7 @@ class ImageEnc:
 
         # Kernels
         self.image_enc_accum_activations_kernel = prog_extra.image_enc_accum_activations
-        self.sparse_activations_kernel = prog.sparse_activations
+        self.inhibit_activations_kernel = prog.inhibit_activations
         self.image_enc_learn_kernel = prog_extra.image_enc_learn
         self.image_enc_decay_kernel = prog_extra.image_enc_decay
         self.image_enc_reconstruct_kernel = prog_extra.image_enc_reconstruct
@@ -131,7 +131,7 @@ class ImageEnc:
                     vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
                     np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32))
 
-        self.sparse_activations_kernel(cq, (self.hidden_size[0], self.hidden_size[1], 1), None, self.activations.data, self.hidden_states.data,
+        self.inhibit_activations_kernel(cq, (self.hidden_size[0], self.hidden_size[1], 1), None, self.activations.data, self.hidden_states.data,
                 vec_hidden_size,
                 np.float32(1.0 / len(self.vls)))
 
