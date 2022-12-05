@@ -98,7 +98,7 @@ class Encoder:
             self.group_radius = pickle.loads(grp.attrs['group_radius'].tobytes())
 
         # Kernels
-        self.accum_activations_kernel = prog.accum_activations
+        self.encoder_accum_activations_kernel = prog.encoder_accum_activations
         self.inhibit_activations_kernel = prog.inhibit_activations
         self.inhibit_activations_second_stage_kernel = prog.inhibit_activations_second_stage
         self.encoder_learn_kernel = prog.encoder_learn
@@ -121,7 +121,7 @@ class Encoder:
 
             vec_visible_size = np.array(list(vld.size), dtype=np.int32)
             
-            self.accum_activations_kernel(cq, self.hidden_size, (1, 1, self.hidden_size[2]),
+            self.encoder_accum_activations_kernel(cq, self.hidden_size, (1, 1, self.hidden_size[2]),
                     visible_states[i].data, vl.weights.data, self.activations.data,
                     vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
                     np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
