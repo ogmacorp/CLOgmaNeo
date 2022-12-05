@@ -175,7 +175,7 @@ __kernel void encoder_learn(
     __global const int* visible_states,
     __global const int* hidden_states,
     __global const char* hidden_peaks,
-    __global const float* hidden_rates,
+    __global float* hidden_rates,
     __global float* weights,
     int4 visible_size,
     int3 hidden_size,
@@ -199,6 +199,7 @@ __kernel void encoder_learn(
 
     __local int count;
 
+    __local int num_hidden_columns;
     __local int num_visible_columns;
 
     __local int hidden_state;
@@ -211,14 +212,14 @@ __kernel void encoder_learn(
         // Second inhibition stage
         for (int dx = -1; dx <= 1; dx++)
             for (int dy = -1; dy <= 1; dy++) {
-                int2 other_column_pos = (int2)(column_pos.x + dx, column_pos.y + dy);
+                int2 other_column_pos = (int2)(hidden_column_pos.x + dx, hidden_column_pos.y + dy);
 
-                if (other_column_pos.x < 0 || other_column_pos.x >= size.x || other_column_pos.y < 0 || other_column_pos.y >= size.y)
+                if (other_column_pos.x < 0 || other_column_pos.x >= hidden_size.x || other_column_pos.y < 0 || other_column_pos.y >= hidden_size.y)
                     continue;
 
-                int other_column_index = other_column_pos.y + size.y * other_column_pos.x;
+                int other_column_index = other_column_pos.y + hidden_size.y * other_column_pos.x;
 
-                int other_peak = peaks[other_column_index + gt * size.x * size.y];
+                int other_peak = hidden_peaks[other_column_index];
 
                 if (other_peak)
                     goto learn;
@@ -238,14 +239,14 @@ learn:
 
         count = (iter_upper_bound.x - iter_lower_bound.x + 1) * (iter_upper_bound.y - iter_lower_bound.y + 1) * visible_size.w;
 
+        num_hidden_columns = hidden_size.x * hidden_size.y;
         num_visible_columns = visible_size.x * visible_size.y;
 
-        hidden_state = hidden_states[hidden_column_index + num_hidden_columns * gslice];
+        hidden_state = hidden_states[hidden_column_index];
     }
 
     barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 
-    int gt = get_global_id(2) / 3;
     int dc = get_global_id(2) % 3 - 1;
 
     int gc = hidden_state + dc;
@@ -253,7 +254,7 @@ learn:
     if (gc < 0 || gc >= hidden_size.z)
         return;
 
-    int hidden_cell_index = gt + hidden_size.w * (gc + hidden_size.z * hidden_column_index);
+    int hidden_cell_index = gc + hidden_size.z * hidden_column_index;
 
     float hidden_rate = hidden_rates[hidden_cell_index];
 

@@ -34,7 +34,7 @@ class Encoder:
             self.activations = cl.array.empty(cq, (num_hidden_cells,), np.float32)
             self.hidden_states = cl.array.zeros(cq, (num_hidden_columns,), np.int32)
             self.hidden_peaks = cl.array.zeros(cq, (num_hidden_columns,), np.uint8)
-            self.hidden_rates = cl.array.ones(cq, (num_hidden_cells,), np.float32) * np.float32(0.5)
+            self.hidden_rates = cl.array.zeros(cq, (num_hidden_cells,), np.float32) + np.float32(0.5)
 
             self.vlds = vlds
             self.vls = []
@@ -144,12 +144,11 @@ class Encoder:
 
                 vec_visible_size = np.array(list(vld.size), dtype=np.int32)
 
-                self.encoder_learn_kernel(cq, (self.hidden_size[0], self.hidden_size[1], 3 * vld.size[3]), (1, 1, 3),
+                self.encoder_learn_kernel(cq, (self.hidden_size[0], self.hidden_size[1], 3), (1, 1, 3),
                         visible_states[i].data, self.hidden_states.data, self.hidden_peaks.data, self.hidden_rates.data, vl.weights.data,
                         vec_visible_size, vec_hidden_size, np.int32(vld.radius),
                         np.int32(diam),
                         np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
-                        np.array([ self.hidden_size[0] / vld.size[0], self.hidden_size[1] / vld.size[1] ], dtype=np.float32),
                         np.int32(history_pos),
                         np.float32(self.lr))
 
