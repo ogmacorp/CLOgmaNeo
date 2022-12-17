@@ -30,8 +30,6 @@ __kernel void image_enc_accum_activations(
     __local int2 iter_lower_bound;
     __local int2 iter_upper_bound;
 
-    __local int count;
-
     // Pre-compute for work group
     if (get_local_id(2) == 0) {
         hidden_column_pos = (int2)(get_global_id(0), get_global_id(1));
@@ -45,8 +43,6 @@ __kernel void image_enc_accum_activations(
         
         iter_lower_bound = (int2)(max(0, field_lower_bound.x), max(0, field_lower_bound.y));
         iter_upper_bound = (int2)(min(visible_size.x - 1, visible_center.x + radius), min(visible_size.y - 1, visible_center.y + radius));
-
-        count = (iter_upper_bound.x - iter_lower_bound.x + 1) * (iter_upper_bound.y - iter_lower_bound.y + 1);
     }
 
     barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
@@ -56,6 +52,7 @@ __kernel void image_enc_accum_activations(
     int hidden_cell_index = gc + hidden_size.z * hidden_column_index;
 
     float sum = 0.0f;
+    float total = 0.0f;
 
     for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
         for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
@@ -71,13 +68,12 @@ __kernel void image_enc_accum_activations(
             for (int c = 0; c < visible_size.z; c++) {
                 int wi = c + wi_start;
 
-                float delta = visible_states[c + visible_states_start] - weights[wi];
-
-                sum -= delta * delta;
+                sum += visible_states[c + visible_states_start] * weights[wi];
+                total += weights[wi] * weights[wi];
             }
         }
 
-    sum /= count;
+    sum /= max(0.0001f, sqrt(total));
 
     activations[hidden_cell_index] += sum;
 }
@@ -85,14 +81,14 @@ __kernel void image_enc_accum_activations(
 __kernel void image_enc_learn(
     __global const float* visible_states,
     __global const int* hidden_states,
-    __global const float* hidden_rates,
+    __global float* hidden_rates,
     __global float* weights,
     int3 visible_size,
     int3 hidden_size,
     int radius,
     int diam,
     float2 h_to_v,
-    float falloff
+    float lr
 ) {
     __local int2 hidden_column_pos;
     __local int hidden_column_index;
@@ -106,6 +102,8 @@ __kernel void image_enc_learn(
     __local int2 iter_lower_bound;
     __local int2 iter_upper_bound;
 
+    __local int hidden_state;
+
     // Pre-compute for work group
     if (get_local_id(2) == 0) {
         hidden_column_pos = (int2)(get_global_id(0), get_global_id(1));
@@ -119,17 +117,22 @@ __kernel void image_enc_learn(
         
         iter_lower_bound = (int2)(max(0, field_lower_bound.x), max(0, field_lower_bound.y));
         iter_upper_bound = (int2)(min(visible_size.x - 1, visible_center.x + radius), min(visible_size.y - 1, visible_center.y + radius));
+
+        hidden_state = hidden_states[hidden_column_index];
     }
 
     barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 
-    int gc = get_global_id(2);
+    int dc = get_global_id(2) - 1;
+
+    int gc = hidden_state + dc;
+
+    if (gc < 0 || gc >= hidden_size.z)
+        return;
 
     int hidden_cell_index = gc + hidden_size.z * hidden_column_index;
 
-    float diff = gc - hidden_states[hidden_column_index];
-
-    float strength = exp(-falloff * diff * diff / max(0.0001f, hidden_rates[hidden_cell_index])) * hidden_rates[hidden_cell_index];
+    float hidden_rate = hidden_rates[hidden_cell_index];
 
     for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
         for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
@@ -145,32 +148,11 @@ __kernel void image_enc_learn(
             for (int c = 0; c < visible_size.z; c++) {
                 int wi = c + wi_start;
 
-                float delta = visible_states[c + visible_states_start] - weights[wi];
-
-                weights[wi] += strength * delta;
+                weights[wi] += hidden_rate * (visible_states[c + visible_states_start] - weights[wi]);
             }
         }
-}
 
-__kernel void image_enc_decay(
-    __global const int* hidden_states,
-    __global float* hidden_rates,
-    int3 hidden_size,
-    float lr,
-    float falloff
-) {
-    int2 hidden_column_pos = (int2)(get_global_id(0), get_global_id(1));
-    int hidden_column_index = hidden_column_pos.y + hidden_size.y * hidden_column_pos.x;
-
-    int gc = get_global_id(2);
-
-    int hidden_cell_index = gc + hidden_size.z * hidden_column_index;
-
-    float diff = gc - hidden_states[hidden_column_index];
-
-    float strength = exp(-falloff * diff * diff / max(0.0001f, hidden_rates[hidden_cell_index])) * hidden_rates[hidden_cell_index];
-
-    hidden_rates[hidden_cell_index] -= lr * strength;
+    hidden_rates[hidden_cell_index] -= lr * hidden_rate;
 }
 
 __kernel void image_enc_reconstruct(

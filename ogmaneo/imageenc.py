@@ -104,7 +104,6 @@ class ImageEnc:
         self.image_enc_accum_activations_kernel = prog_extra.image_enc_accum_activations
         self.inhibit_activations_kernel = prog.inhibit_activations
         self.image_enc_learn_kernel = prog_extra.image_enc_learn
-        self.image_enc_decay_kernel = prog_extra.image_enc_decay
         self.image_enc_reconstruct_kernel = prog_extra.image_enc_reconstruct
 
     def step(self, cq: cl.CommandQueue, visible_states: [ cl.array.Array ], learn_enabled: bool = True):
@@ -145,18 +144,11 @@ class ImageEnc:
                 # Pad 3-vecs to 4-vecs
                 vec_visible_size = np.array(list(vld.size) + [ 1 ], dtype=np.int32)
 
-                self.image_enc_learn_kernel(cq, self.hidden_size, (1, 1, self.hidden_size[2]),
+                self.image_enc_learn_kernel(cq, (self.hidden_size[0], self.hidden_size[1], 3), (1, 1, 3),
                         visible_states[i].data, self.hidden_states.data, self.hidden_rates.data, vl.weights.data,
                         vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
                         np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
-                        np.float32(self.falloff))
-
-        # Decay
-        self.image_enc_decay_kernel(cq, self.hidden_size, None,
-                self.hidden_states.data, self.hidden_rates.data,
-                vec_hidden_size,
-                np.float32(self.lr),
-                np.float32(self.falloff))
+                        np.float32(self.lr))
 
     def reconstruct(self, cq: cl.CommandQueue, hidden_states: cl.array.Array, indices: [ int ] = []):
         if len(indices) == 0: # Empty means all indices

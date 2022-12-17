@@ -360,9 +360,7 @@ found:
 
                 int wi = t + wi_start;
 
-                float delta = visible_value - weights[wi];
-
-                weights[wi] += hidden_rate * delta;
+                weights[wi] += hidden_rate * (visible_value - weights[wi]);
             }
         }
 
