@@ -364,10 +364,8 @@ learn:
 
     hidden_rates[hidden_cell_index] -= lr * hidden_rate;
 }
-
 __kernel void decoder_learn(
     __global const int* visible_states,
-    __global const int* hidden_states,
     __global const int* target_hidden_states,
     __global const float* activations,
     __global float* weights,
@@ -396,7 +394,10 @@ __kernel void decoder_learn(
     __local int num_hidden_columns;
     __local int num_visible_columns;
 
-    int gt = get_global_id(2);
+    __local int target_state;
+
+    int gt = get_global_id(2) / hidden_size.z;
+    int gc = get_global_id(2) % hidden_size.z;
 
     int gslice = (target_pos + gt) % target_temporal_horizon;
 
@@ -418,18 +419,15 @@ __kernel void decoder_learn(
 
         num_hidden_columns = hidden_size.x * hidden_size.y;
         num_visible_columns = visible_size.x * visible_size.y;
+
+        target_state = target_hidden_states[hidden_column_index + num_hidden_columns * gslice];
     }
 
     barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 
-    int target_state = target_hidden_states[hidden_column_index + num_hidden_columns * gslice];
-    int hidden_state = hidden_states[hidden_column_index + num_hidden_columns * gslice];
+    int hidden_cell_index = gt + hidden_size.w * (gc + hidden_size.z * hidden_column_index);
 
-    if (hidden_state == target_state)
-        return;
-
-    // Update weights upwards
-    int hidden_cell_index = gt + hidden_size.w * (target_state + hidden_size.z * hidden_column_index);
+    float delta = lr * ((gc == target_state) - sigmoid(activations[hidden_cell_index]));
 
     for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
         for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
@@ -448,7 +446,7 @@ __kernel void decoder_learn(
 
                 int wi = t + visible_size.w * (visible_state + wi_start);
 
-                weights[wi] += lr * (1.0f - weights[wi]);
+                weights[wi] += delta;
             }
         }
 }
