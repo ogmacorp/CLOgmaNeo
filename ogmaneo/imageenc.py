@@ -58,8 +58,7 @@ class ImageEnc:
                 self.vls.append(vl)
 
             # Hyperparameters
-            self.lr = 0.01
-            self.falloff = 0.1
+            self.lr = 0.1
 
         else: # Load from h5py group
             self.hidden_size = pickle.loads(grp.attrs['hidden_size'].tobytes())
@@ -98,7 +97,6 @@ class ImageEnc:
 
             # Hyperparameters
             self.lr = pickle.loads(grp.attrs['lr'].tobytes())
-            self.falloff = pickle.loads(grp.attrs['falloff'].tobytes())
 
         # Kernels
         self.image_enc_accum_activations_kernel = prog_extra.image_enc_accum_activations
@@ -187,4 +185,3 @@ class ImageEnc:
             grp.create_dataset('reconstruction' + str(i), data=self.vls[i].reconstruction.get())
 
         grp.attrs['lr'] = np.void(pickle.dumps(self.lr))
-        grp.attrs['falloff'] = np.void(pickle.dumps(self.falloff))
