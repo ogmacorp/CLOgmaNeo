@@ -283,10 +283,14 @@ __kernel void encoder_learn(
 
     __local int hidden_state;
 
+    __local bool learn_enabled;
+
     // Pre-compute for work group
     if (get_local_id(2) == 0) {
         hidden_column_pos = (int2)(get_global_id(0), get_global_id(1));
         hidden_column_index = hidden_column_pos.y + hidden_size.y * hidden_column_pos.x;
+
+        learn_enabled = false;
 
         // Second inhibition stage
         for (int dx = -1; dx <= 1; dx++)
@@ -300,13 +304,13 @@ __kernel void encoder_learn(
 
                 int other_peak = hidden_peaks[other_column_index];
 
-                if (other_peak)
-                    goto learn;
+                if (other_peak) {
+                    learn_enabled = true;
+                    goto found;
+                }
             }
 
-        return;
-
-learn:
+found:
         // Project
         visible_center = (int2)((hidden_column_pos.x + 0.5f) * h_to_v.x, (hidden_column_pos.y + 0.5f) * h_to_v.y);
 
@@ -330,7 +334,7 @@ learn:
 
     int gc = hidden_state + dc;
 
-    if (gc < 0 || gc >= hidden_size.z)
+    if (!learn_enabled || gc < 0 || gc >= hidden_size.z)
         return;
 
     int hidden_cell_index = gc + hidden_size.z * hidden_column_index;
@@ -364,6 +368,7 @@ learn:
 
     hidden_rates[hidden_cell_index] -= lr * hidden_rate;
 }
+
 __kernel void decoder_learn(
     __global const int* visible_states,
     __global const int* target_hidden_states,
