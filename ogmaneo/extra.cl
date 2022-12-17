@@ -52,7 +52,6 @@ __kernel void image_enc_accum_activations(
     int hidden_cell_index = gc + hidden_size.z * hidden_column_index;
 
     float sum = 0.0f;
-    float total = 0.0f;
 
     for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
         for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
@@ -68,12 +67,11 @@ __kernel void image_enc_accum_activations(
             for (int c = 0; c < visible_size.z; c++) {
                 int wi = c + wi_start;
 
-                sum += visible_states[c + visible_states_start] * weights[wi];
-                total += weights[wi] * weights[wi];
+                float delta = visible_states[c + visible_states_start] - weights[wi];
+
+                sum -= delta * delta;
             }
         }
-
-    sum /= max(0.0001f, sqrt(total));
 
     activations[hidden_cell_index] += sum;
 }

@@ -34,7 +34,9 @@ class Encoder:
             self.activations = cl.array.empty(cq, (num_hidden_cells,), np.float32)
             self.hidden_states = cl.array.zeros(cq, (num_hidden_columns,), np.int32)
             self.hidden_peaks = cl.array.zeros(cq, (num_hidden_columns,), np.uint8)
-            self.hidden_rates = cl.array.zeros(cq, (num_hidden_cells,), np.float32) + np.float32(0.5)
+            self.hidden_rates = cl.array.empty(cq, (num_hidden_cells,), np.float32)
+
+            self.hidden_rates.fill(np.float32(1))
 
             self.vlds = vlds
             self.vls = []
