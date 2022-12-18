@@ -177,9 +177,6 @@ __kernel void image_enc_reconstruct(
     __local int2 iter_lower_bound;
     __local int2 iter_upper_bound;
 
-    __local int max_index;
-    __local float max_activation;
-
     // Pre-compute for work group
     if (get_local_id(2) == 0) {
         visible_column_pos = (int2)(get_global_id(0), get_global_id(1));
@@ -193,9 +190,6 @@ __kernel void image_enc_reconstruct(
         
         iter_lower_bound = (int2)(max(0, field_lower_bound.x), max(0, field_lower_bound.y));
         iter_upper_bound = (int2)(min(hidden_size.x - 1, hidden_center.x + reverse_radii.x), min(hidden_size.y - 1, hidden_center.y + reverse_radii.y));
-
-        max_index = 0;
-        max_activation = -999999.0f;
     }
 
     barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
