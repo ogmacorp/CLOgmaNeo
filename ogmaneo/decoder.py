@@ -56,7 +56,7 @@ class Decoder:
 
             # Hyperparameters
             self.lr = 1.0
-            self.stick = 4.0
+            self.stability = 4.0
 
         else: # Load from h5py group
             self.hidden_size = pickle.loads(grp.attrs['hidden_size'].tobytes())
@@ -93,7 +93,7 @@ class Decoder:
                 self.vls.append(vl)
 
             self.lr = pickle.loads(grp.attrs['lr'].tobytes())
-            self.stick = pickle.loads(grp.attrs['stick'].tobytes())
+            self.stability = pickle.loads(grp.attrs['stability'].tobytes())
 
         # Kernels
         self.accum_activations_kernel = prog.accum_activations
@@ -119,7 +119,7 @@ class Decoder:
                         vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
                         np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
                         np.int32(history_pos), np.int32(target_pos), np.int32(target_temporal_horizon),
-                        np.float32(self.lr), np.float32(self.stick))
+                        np.float32(self.lr), np.float32(self.stability))
 
         # Clear
         self.activations.fill(np.float32(0))
@@ -163,4 +163,4 @@ class Decoder:
             grp.create_dataset('visible_states_prev' + str(i), data=self.vls[i].visible_states_prev.get())
 
         grp.attrs['lr'] = np.void(pickle.dumps(self.lr))
-        grp.attrs['stick'] = np.void(pickle.dumps(self.stick))
+        grp.attrs['stability'] = np.void(pickle.dumps(self.stability))
