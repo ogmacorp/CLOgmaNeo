@@ -345,7 +345,7 @@ __kernel void decoder_learn(
 
                 int wi = t + visible_size.w * (visible_state + wi_start);
 
-                weights[wi] += delta * expf(-max(0.0f, weights[wi] * stability));
+                weights[wi] += delta * exp(-max(0.0f, weights[wi] * stability));
             }
         }
 }
