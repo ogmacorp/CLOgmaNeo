@@ -23,7 +23,8 @@ __kernel void accum_activations(
     int radius,
     int diam,
     float2 h_to_v,
-    int history_pos
+    int history_pos,
+    float importance
 ) {
     __local int2 hidden_column_pos;
     __local int hidden_column_index;
@@ -92,7 +93,7 @@ __kernel void accum_activations(
 
     sum /= count;
 
-    activations[hidden_cell_index] += sum;
+    activations[hidden_cell_index] += sum * importance;
 }
 
 __kernel void inhibit_activations(
@@ -256,7 +257,7 @@ __kernel void encoder_learn(
 
                     int wi = gt + visible_size.w * (gc + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_cell_index)));
 
-                    weights[wi] = min(0.0, weights[wi] + delta);
+                    weights[wi] = min(0.0f, weights[wi] + delta);
                 }
             }
     }
