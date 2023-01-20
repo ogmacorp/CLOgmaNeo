@@ -254,3 +254,9 @@ class Hierarchy:
         grp.attrs['history_pos'] = np.void(pickle.dumps(self.history_pos))
 
         grp.attrs['updates'] = np.void(pickle.dumps(self.updates))
+
+    def set_input_importance(self, i, importance):
+        self.encoders[0].vlds[i].importance = importance
+
+    def get_input_importance(self, i):
+        return self.encoders[0].vlds[i].importance
