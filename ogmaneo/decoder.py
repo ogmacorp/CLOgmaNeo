@@ -55,7 +55,7 @@ class Decoder:
                 self.vls.append(vl)
 
             # Hyperparameters
-            self.lr = 0.2
+            self.lr = 0.5
             self.stability = 4.0
 
         else: # Load from h5py group
