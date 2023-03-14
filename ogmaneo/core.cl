@@ -327,7 +327,7 @@ __kernel void decoder_learn(
 
     int hidden_cell_index = gt + hidden_size.w * (gc + hidden_size.z * hidden_column_index);
 
-    float delta = lr * ((gc == target_state) - sigmoid(activations[hidden_cell_index])));
+    float delta = lr * ((gc == target_state) - sigmoid(activations[hidden_cell_index]));
 
     for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
         for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
