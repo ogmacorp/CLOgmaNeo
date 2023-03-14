@@ -348,7 +348,7 @@ __kernel void decoder_learn(
 
                 float w = weights[wi];
 
-                weights[wi] += delta / (1.0f + stability * w * w);
+                weights[wi] += delta / (1.0f + stability * abs(w));
             }
         }
 }
