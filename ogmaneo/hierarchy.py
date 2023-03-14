@@ -61,7 +61,7 @@ class Hierarchy:
                         num_io_columns = io_descs[j].size[0] * io_descs[j].size[1]
 
                         # For each timestep
-                        e_vlds.append(Encoder.VisibleLayerDesc(size=(io_descs[j].size[0], io_descs[j].size[1], io_descs[j].size[2], lds[i].temporal_horizon), radius=io_descs[j].e_radius))
+                        e_vlds.append(Encoder.VisibleLayerDesc(size=(io_descs[j].size[0], io_descs[j].size[1], io_descs[j].size[2], lds[i].temporal_horizon), radius=io_descs[j].e_radius, importance=1.0))
 
                         io_history.append(cl.array.zeros(cq, (num_io_columns * lds[i].temporal_horizon,), np.int32))
 
@@ -81,7 +81,7 @@ class Hierarchy:
 
                     io_history.append(cl.array.zeros(cq, (num_prev_columns * lds[i].temporal_horizon,), np.int32))
 
-                    e_vlds = [ Encoder.VisibleLayerDesc(size=(lds[i - 1].hidden_size[0], lds[i - 1].hidden_size[1], lds[i - 1].hidden_size[2], lds[i].temporal_horizon), radius=lds[i].e_radius) ]
+                    e_vlds = [ Encoder.VisibleLayerDesc(size=(lds[i - 1].hidden_size[0], lds[i - 1].hidden_size[1], lds[i - 1].hidden_size[2], lds[i].temporal_horizon), radius=lds[i].e_radius, importance=1.0) ]
 
                     d_vld = Decoder.VisibleLayerDesc(size=(lds[i].hidden_size[0], lds[i].hidden_size[1], lds[i].hidden_size[2], 2 if i < len(lds) - 1 else 1), radius=lds[i].d_radius)
 
@@ -254,3 +254,9 @@ class Hierarchy:
         grp.attrs['history_pos'] = np.void(pickle.dumps(self.history_pos))
 
         grp.attrs['updates'] = np.void(pickle.dumps(self.updates))
+
+    def set_input_importance(self, i, importance):
+        self.encoders[0].vlds[i].importance = importance
+
+    def get_input_importance(self, i):
+        return self.encoders[0].vlds[i].importance

@@ -59,6 +59,7 @@ class ImageEnc:
 
             # Hyperparameters
             self.lr = 0.1
+            self.falloff = 4.0
 
         else: # Load from h5py group
             self.hidden_size = pickle.loads(grp.attrs['hidden_size'].tobytes())
@@ -97,11 +98,13 @@ class ImageEnc:
 
             # Hyperparameters
             self.lr = pickle.loads(grp.attrs['lr'].tobytes())
+            self.falloff = pickle.loads(grp.attrs['falloff'].tobytes())
 
         # Kernels
         self.image_enc_accum_activations_kernel = prog_extra.image_enc_accum_activations
         self.inhibit_activations_kernel = prog.inhibit_activations
         self.image_enc_learn_kernel = prog_extra.image_enc_learn
+        self.image_enc_decay_kernel = prog_extra.image_enc_decay
         self.image_enc_reconstruct_kernel = prog_extra.image_enc_reconstruct
 
     def step(self, cq: cl.CommandQueue, visible_states: [ cl.array.Array ], learn_enabled: bool = True):
@@ -142,11 +145,18 @@ class ImageEnc:
                 # Pad 3-vecs to 4-vecs
                 vec_visible_size = np.array(list(vld.size) + [ 1 ], dtype=np.int32)
 
-                self.image_enc_learn_kernel(cq, (self.hidden_size[0], self.hidden_size[1], 3), (1, 1, 3),
+                self.image_enc_learn_kernel(cq, self.hidden_size, (1, 1, self.hidden_size[2]),
                         visible_states[i].data, self.hidden_states.data, self.hidden_rates.data, vl.weights.data,
                         vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
                         np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
-                        np.float32(self.lr))
+                        np.float32(self.falloff))
+
+        # Decay
+        self.image_enc_decay_kernel(cq, self.hidden_size, None,
+                self.hidden_states.data, self.hidden_rates.data,
+                vec_hidden_size,
+                np.float32(self.lr),
+                np.float32(self.falloff))
 
     def reconstruct(self, cq: cl.CommandQueue, hidden_states: cl.array.Array, indices: [ int ] = []):
         if len(indices) == 0: # Empty means all indices
@@ -185,3 +195,4 @@ class ImageEnc:
             grp.create_dataset('reconstruction' + str(i), data=self.vls[i].reconstruction.get())
 
         grp.attrs['lr'] = np.void(pickle.dumps(self.lr))
+        grp.attrs['falloff'] = np.void(pickle.dumps(self.falloff))
