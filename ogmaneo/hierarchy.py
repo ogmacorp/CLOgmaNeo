@@ -36,7 +36,7 @@ class Hierarchy:
         e_radius: int = 2
         d_radius: int = 2
         ticks_per_update: int = 2
-        temporal_horizon: int = 4
+        temporal_horizon: int = 2
 
     def __init__(self, cq: cl.CommandQueue, prog: cl.Program, io_descs: [ IODesc ] = [], lds: [ LayerDesc ] = [], grp: h5py.Group = None):
         if grp is None:
