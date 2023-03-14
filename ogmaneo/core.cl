@@ -276,8 +276,7 @@ __kernel void decoder_learn(
     int history_pos,
     int target_pos,
     int target_temporal_horizon,
-    float lr,
-    float stability
+    float lr
 ) {
     __local int2 hidden_column_pos;
     __local int hidden_column_index;
@@ -348,7 +347,7 @@ __kernel void decoder_learn(
 
                 float w = weights[wi];
 
-                weights[wi] += delta / (1.0f + stability * abs(w));
+                weights[wi] += delta;
             }
         }
 }
