@@ -236,7 +236,7 @@ __kernel void encoder_learn(
     barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 
     if (max_index != target_state) {
-        float delta = lr * ((gc == target_state) - sigmoid(sum));
+        float delta = lr * ((gc == target_state) - exp(min(0.0f, sum)));
 
         for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
             for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
@@ -326,7 +326,7 @@ __kernel void decoder_learn(
 
     int hidden_cell_index = gt + hidden_size.w * (gc + hidden_size.z * hidden_column_index);
 
-    float delta = lr * ((gc == target_state) - sigmoid(activations[hidden_cell_index]));
+    float delta = lr * ((gc == target_state) - tanh(max(0.0f, activations[hidden_cell_index])));
 
     for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
         for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
@@ -344,8 +344,6 @@ __kernel void decoder_learn(
                 int visible_state = visible_states[visible_column_index + num_visible_columns * slice];
 
                 int wi = t + visible_size.w * (visible_state + wi_start);
-
-                float w = weights[wi];
 
                 weights[wi] += delta;
             }
