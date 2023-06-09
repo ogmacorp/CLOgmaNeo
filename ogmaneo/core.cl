@@ -126,6 +126,82 @@ __kernel void inhibit_activations(
     states[column_index + gt * size.x * size.y] = max_index;
 }
 
+__kernel void update_gates(
+    __global const int* hidden_states,
+    __global const int* usages,
+    __global float* usage_sums,
+    int4 visible_size,
+    int4 hidden_size,
+    int radius,
+    int diam,
+    float2 h_to_v
+) {
+    __local int2 hidden_column_pos;
+    __local int hidden_column_index;
+
+    // Project
+    __local int2 visible_center;
+
+    // Bounds
+    __local int2 field_lower_bound;
+    
+    __local int2 iter_lower_bound;
+    __local int2 iter_upper_bound;
+
+    __local int count;
+
+    __local int num_visible_columns;
+
+    // Pre-compute for work group
+    if (get_local_id(2) == 0) {
+        hidden_column_pos = (int2)(get_global_id(0), get_global_id(1));
+        hidden_column_index = hidden_column_pos.y + hidden_size.y * hidden_column_pos.x;
+
+        // Project
+        visible_center = (int2)((hidden_column_pos.x + 0.5f) * h_to_v.x, (hidden_column_pos.y + 0.5f) * h_to_v.y);
+
+        // Bounds
+        field_lower_bound = visible_center - radius;
+        
+        iter_lower_bound = (int2)(max(0, field_lower_bound.x), max(0, field_lower_bound.y));
+        iter_upper_bound = (int2)(min(visible_size.x - 1, visible_center.x + radius), min(visible_size.y - 1, visible_center.y + radius));
+
+        count = (iter_upper_bound.x - iter_lower_bound.x + 1) * (iter_upper_bound.y - iter_lower_bound.y + 1) * visible_size.w;
+
+        num_visible_columns = visible_size.x * visible_size.y;
+    }
+
+    barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+
+    int gt = get_global_id(2) / hidden_size.z;
+    int gc = get_global_id(2) % hidden_size.z;
+
+    int hidden_cell_index = gt + hidden_size.w * (gc + hidden_size.z * hidden_column_index);
+
+    int sum = 0;
+
+    for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
+        for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
+            int2 visible_column_pos = (int2)(ix, iy);
+
+            int visible_column_index = iy + visible_size.y * ix;
+
+            int2 offset = visible_column_pos - field_lower_bound;
+
+            int wi_start = visible_size.z * (offset.y + diam * (offset.x + diam * hidden_cell_index));
+
+            for (int t = 0; t < visible_size.w; t++) {
+                int wi = t + visible_size.w * (visible_state + wi_start);
+
+                sum += usages[wi];
+            }
+        }
+
+    sum /= count;
+
+    usage_sums[hidden_cell_index] += sum * importance;
+}
+
 __kernel void encoder_learn(
     __global const int* visible_states,
     __global const int* hidden_states,

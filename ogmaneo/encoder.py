@@ -15,6 +15,8 @@ from dataclasses import dataclass
 import h5py
 import pickle
 
+MAX_USAGE = 999999
+
 class Encoder:
     @dataclass
     class VisibleLayerDesc:
@@ -50,13 +52,15 @@ class Encoder:
                 area = diam * diam
                 num_weights = num_hidden_cells * area * vld.size[2] * vld.size[3]
 
-                vl.weights = cl.clrandom.rand(cq, (num_weights,), np.float32, a=-1.0, b=0.0)
+                vl.weights = cl.clrandom.rand(cq, (num_weights,), np.float32, a=0.0, b=1.0)
+                vl.usages = cl.array.zeros(cq, (num_weights,), np.int32)
                 vl.reconstruction = cl.array.empty(cq, (num_visible_cells,), np.float32)
 
                 self.vls.append(vl)
 
             # Hyperparameters
-            self.lr = 0.1
+            self.lr = 1.0
+            self.gcurve = 8.0
 
         else: # Load from h5py group
             self.hidden_size = pickle.loads(grp.attrs['hidden_size'].tobytes())
@@ -87,11 +91,13 @@ class Encoder:
                 vl.reconstruction = cl.array.empty(cq, (num_visible_cells,), np.float32)
 
                 vl.weights.set(np.array(grp['weights' + str(i)][:], np.float32))
+                vl.weights.set(np.array(grp['usages' + str(i)][:], np.int32))
 
                 self.vls.append(vl)
 
             # Hyperparameters
             self.lr = pickle.loads(grp.attrs['lr'].tobytes())
+            self.gcurve = pickle.loads(grp.attrs['gcurve'].tobytes())
 
         # Kernels
         self.accum_activations_kernel = prog.accum_activations
