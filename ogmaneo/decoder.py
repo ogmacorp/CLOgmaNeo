@@ -90,6 +90,7 @@ class Decoder:
                 num_weights = num_hidden_cells * area * vld.size[2] * vld.size[3]
 
                 vl.weights = cl.array.empty(cq, (num_weights,), np.float32)
+                vl.usages = cl.array.empty(cq, (num_weights,), np.uint8)
                 vl.visible_states_prev = cl.array.empty(cq, (num_visible_columns * vld.size[3],), np.int32)
 
                 vl.weights.set(np.array(grp['weights' + str(i)][:], np.float32))
