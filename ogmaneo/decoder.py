@@ -125,7 +125,7 @@ class Decoder:
 
                 vec_visible_size = np.array(list(vld.size), dtype=np.int32)
 
-                self.decoder_activate_gates_kernel(cq, (vld.size[0], vld.size[1]), None,
+                self.decoder_activate_gates_kernel(cq, (vld.size[0], vld.size[1], vld.size[3]), None,
                         visible_states[i].data, vl.usages.data, vl.visible_gates.data,
                         vec_visible_size, vec_hidden_size, np.int32(vld.radius),
                         np.array([ math.ceil(diam * self.hidden_size[0] / vld.size[0] * 0.5), math.ceil(diam * self.hidden_size[1] / vld.size[1] * 0.5) ], np.int32),
