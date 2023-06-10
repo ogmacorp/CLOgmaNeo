@@ -512,7 +512,7 @@ __kernel void decoder_learn(
 
                 int wi = t + visible_size.w * (visible_state + wi_start);
 
-                weights[wi] += delta * visible_gates[visible_column_index];
+                weights[wi] += delta * visible_gates[t + visible_size.w * visible_column_index];
             }
         }
 
