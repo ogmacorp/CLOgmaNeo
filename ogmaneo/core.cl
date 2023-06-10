@@ -134,7 +134,8 @@ __kernel void encoder_accum_usages(
     int4 hidden_size,
     int radius,
     int diam,
-    float2 h_to_v
+    float2 h_to_v,
+    float importance
 ) {
     int2 hidden_column_pos = (int2)(get_global_id(0), get_global_id(1));
     int hidden_column_index = hidden_column_pos.y + hidden_size.y * hidden_column_pos.x;
@@ -359,7 +360,7 @@ __kernel void decoder_activate_gates(
     __global const unsigned char* usages,
     __global float* visible_gates,
     int4 visible_size,
-    int3 hidden_size,
+    int4 hidden_size,
     int radius,
     int2 reverse_radii,
     int diam,
@@ -409,9 +410,11 @@ __kernel void decoder_activate_gates(
                 int2 offset = (int2)(visible_column_pos.x - visible_center.x + radius, visible_column_pos.y - visible_center.y + radius);
 
                 for (int c = 0; c < hidden_size.z; c++) {
-                    int hidden_cell_index = t + hidden_size.w * (c + hidden_size.z * hidden_column_index);
+                    int hidden_cells_start = hidden_size.w * (c + hidden_size.z * hidden_column_index);
 
                     for (int t = 0; t < hidden_size.w; t++) {
+                        int hidden_cell_index = t + hidden_cells_start;
+
                         int wi = gt + visible_size.w * (target_state + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_cell_index)));
 
                         sum += usages[wi];
@@ -422,7 +425,7 @@ __kernel void decoder_activate_gates(
             }
         }
 
-    visible_gates[temporal_visible_cell_index] = exp(-gcurve * (sum / 255.0f) / (count * hidden_size.z * hidden_size.w));
+    visible_gates[temporal_visible_column_index] = exp(-gcurve * (sum / 255.0f) / (count * hidden_size.z * hidden_size.w));
 }
 
 __kernel void decoder_learn(
@@ -489,7 +492,7 @@ __kernel void decoder_learn(
 
     int hidden_cell_index = gt + hidden_size.w * (gc + hidden_size.z * hidden_column_index);
 
-    float delta = lr * ((gc == target_state) - sigmoid(activations[hidden_cell_index])));
+    float delta = lr * ((gc == target_state) - sigmoid(activations[hidden_cell_index]));
 
     for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
         for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {

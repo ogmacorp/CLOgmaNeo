@@ -23,7 +23,9 @@ class Decoder:
 
     class VisibleLayer:
         weights: cl.array.Array
+        usages: cl.array.Array
         visible_states_prev: cl.array.Array
+        visible_gates: cl.array.Array
 
     def __init__(self, cq: cl.CommandQueue, prog: cl.Program, hidden_size: (int, int, int, int) = (4, 4, 16, 1), vlds: [ VisibleLayerDesc ] = [], grp: h5py.Group = None):
         if grp is None:
