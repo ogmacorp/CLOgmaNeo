@@ -166,10 +166,8 @@ __kernel void encoder_accum_usages(
             int wi_start = visible_size.z * (offset.y + diam * (offset.x + diam * hidden_cell_index));
 
             for (int c = 0; c < visible_size.z; c++) {
-                int wi_start = visible_size.w * (c + wi_start);
-
                 for (int t = 0; t < visible_size.w; t++) {
-                    int wi = t + wi_start;
+                    int wi = t + visible_size.w * (c + wi_start);
 
                     sum += usages[wi];
                 }
