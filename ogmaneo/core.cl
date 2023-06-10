@@ -399,8 +399,6 @@ __kernel void decoder_activate_gates(
 
             int hidden_column_index = iy + hidden_size.y * ix;
 
-            int hidden_cell_index = hidden_states[hidden_column_index] + hidden_size.z * hidden_column_index;
-
             // Project
             int2 visible_center = (int2)((hidden_column_pos.x + 0.5f) * h_to_v.x, (hidden_column_pos.y + 0.5f) * h_to_v.y);
 
@@ -411,16 +409,20 @@ __kernel void decoder_activate_gates(
                 int2 offset = (int2)(visible_column_pos.x - visible_center.x + radius, visible_column_pos.y - visible_center.y + radius);
 
                 for (int c = 0; c < hidden_size.z; c++) {
-                    int wi = gt + visible_size.w * (target_state + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_cell_index)));
+                    int hidden_cell_index = t + hidden_size.w * (c + hidden_size.z * hidden_column_index);
 
-                    sum += weights[wi];
+                    for (int t = 0; t < hidden_size.w; t++) {
+                        int wi = gt + visible_size.w * (target_state + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_cell_index)));
+
+                        sum += usages[wi];
+                    }
                 }
 
                 count++;
             }
         }
 
-    visible_gates[temporal_visible_cell_index] = exp(-gcurve * (sum / 255.0f) / (count * hidden_size.z));
+    visible_gates[temporal_visible_cell_index] = exp(-gcurve * (sum / 255.0f) / (count * hidden_size.z * hidden_size.w));
 }
 
 __kernel void decoder_learn(
