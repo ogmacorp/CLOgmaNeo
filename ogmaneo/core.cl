@@ -149,7 +149,7 @@ __kernel void encoder_accum_usages(
     int2 iter_lower_bound = (int2)(max(0, field_lower_bound.x), max(0, field_lower_bound.y));
     int2 iter_upper_bound = (int2)(min(visible_size.x - 1, visible_center.x + radius), min(visible_size.y - 1, visible_center.y + radius));
 
-    int count = (iter_upper_bound.x - iter_lower_bound.x + 1) * (iter_upper_bound.y - iter_lower_bound.y + 1) * visible_size.w;
+    int count = (iter_upper_bound.x - iter_lower_bound.x + 1) * (iter_upper_bound.y - iter_lower_bound.y + 1) * visible_size.z * visible_size.w;
 
     int hidden_cell_index = hidden_states[hidden_column_index] + hidden_size.z * hidden_column_index;
 
@@ -187,7 +187,7 @@ __kernel void encoder_activate_gates(
     int2 hidden_column_pos = (int2)(get_global_id(0), get_global_id(1));
     int hidden_column_index = hidden_column_pos.y + hidden_size.y * hidden_column_pos.x;
 
-    gates[hidden_column_index] = exp(gcurve * -usage_sums[hidden_column_index] * scale);
+    gates[hidden_column_index] = exp(-gcurve * usage_sums[hidden_column_index] * scale);
 }
 
 __kernel void encoder_learn(

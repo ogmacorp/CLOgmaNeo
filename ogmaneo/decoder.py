@@ -51,7 +51,7 @@ class Decoder:
                 area = diam * diam
                 num_weights = num_hidden_cells * area * vld.size[2] * vld.size[3]
 
-                vl.weights = cl.clrandom.rand(cq, (num_weights,), np.float32, a=-0.0001, b=0.0001)
+                vl.weights = cl.clrandom.rand(cq, (num_weights,), np.float32, a=-0.01, b=0.01)
                 vl.usages = cl.array.zeros(cq, (num_weights,), np.uint8)
                 vl.visible_states_prev = cl.array.zeros(cq, (num_visible_columns * vld.size[3],), np.int32)
 
@@ -125,7 +125,7 @@ class Decoder:
 
                 vec_visible_size = np.array(list(vld.size), dtype=np.int32)
 
-                self.decoder_activate_gates_kernel(cq, (vld.size[0], vld.size[1], 1), None,
+                self.decoder_activate_gates_kernel(cq, (vld.size[0], vld.size[1]), None,
                         visible_states[i].data, vl.usages.data, vl.visible_gates.data,
                         vec_visible_size, vec_hidden_size, np.int32(vld.radius),
                         np.array([ math.ceil(diam * self.hidden_size[0] / vld.size[0] * 0.5), math.ceil(diam * self.hidden_size[1] / vld.size[1] * 0.5) ], np.int32),
