@@ -163,7 +163,7 @@ class Encoder:
 
             self.encoder_activate_gates_kernel(cq, (self.hidden_size[0], self.hidden_size[1], 1), None, self.usage_sums.data, self.hidden_gates.data,
                     vec_hidden_size,
-                    np.float32(1.0 / len(self.vls)))
+                    np.float32(1.0 / len(self.vls)), np.float32(self.gcurve))
 
             for i in range(len(self.vls)):
                 vld = self.vlds[i]
@@ -174,7 +174,7 @@ class Encoder:
                 vec_visible_size = np.array(list(vld.size), dtype=np.int32)
 
                 self.encoder_learn_kernel(cq, (vld.size[0], vld.size[1], vld.size[2] * vld.size[3]), (1, 1, vld.size[2]),
-                        visible_states[i].data, self.hidden_states.data, self.hidden_gates.data, vl.weights.data, vl.reconstruction.data,
+                        visible_states[i].data, self.hidden_states.data, self.hidden_gates.data, vl.weights.data, vl.usages.data, vl.reconstruction.data,
                         vec_visible_size, vec_hidden_size, np.int32(vld.radius),
                         np.array([ math.ceil(diam * self.hidden_size[0] / vld.size[0] * 0.5), math.ceil(diam * self.hidden_size[1] / vld.size[1] * 0.5) ], np.int32),
                         np.int32(diam),

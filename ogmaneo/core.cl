@@ -8,7 +8,7 @@
 
 // --- Helpers ---
 
-__inline float sigmoid(float x) {
+float sigmoid(float x) {
     return tanh(x * 0.5f) * 0.5f + 0.5f;
 }
 
@@ -299,30 +299,6 @@ __kernel void encoder_learn(
                 max_index = c;
             }
         }
-
-        // usage update
-        for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
-            for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
-                int2 hidden_column_pos = (int2)(ix, iy);
-
-                int hidden_column_index = iy + hidden_size.y * ix;
-
-                int hidden_cell_index = hidden_states[hidden_column_index] + hidden_size.z * hidden_column_index;
-
-                // Project
-                int2 visible_center = (int2)((hidden_column_pos.x + 0.5f) * h_to_v.x, (hidden_column_pos.y + 0.5f) * h_to_v.y);
-
-                // Bounds check
-                if (visible_column_pos.x >= visible_center.x - radius && visible_column_pos.x <= visible_center.x + radius &&
-                    visible_column_pos.y >= visible_center.y - radius && visible_column_pos.y <= visible_center.y + radius)
-                {
-                    int2 offset = (int2)(visible_column_pos.x - visible_center.x + radius, visible_column_pos.y - visible_center.y + radius);
-
-                    int wi = gt + visible_size.w * (target_state + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_cell_index)));
-
-                    usages[wi] = min(255, usages[wi] + 1);
-                }
-            }
     }
 
     barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
@@ -350,6 +326,32 @@ __kernel void encoder_learn(
                     int wi = gt + visible_size.w * (gc + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_cell_index)));
 
                     weights[wi] += delta * hidden_gates[hidden_column_index];
+                }
+            }
+    }
+
+    if (gc == target_state) {
+        // usage update
+        for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
+            for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
+                int2 hidden_column_pos = (int2)(ix, iy);
+
+                int hidden_column_index = iy + hidden_size.y * ix;
+
+                int hidden_cell_index = hidden_states[hidden_column_index] + hidden_size.z * hidden_column_index;
+
+                // Project
+                int2 visible_center = (int2)((hidden_column_pos.x + 0.5f) * h_to_v.x, (hidden_column_pos.y + 0.5f) * h_to_v.y);
+
+                // Bounds check
+                if (visible_column_pos.x >= visible_center.x - radius && visible_column_pos.x <= visible_center.x + radius &&
+                    visible_column_pos.y >= visible_center.y - radius && visible_column_pos.y <= visible_center.y + radius)
+                {
+                    int2 offset = (int2)(visible_column_pos.x - visible_center.x + radius, visible_column_pos.y - visible_center.y + radius);
+
+                    int wi = gt + visible_size.w * (gc + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_cell_index)));
+
+                    usages[wi] = min(255, usages[wi] + 1);
                 }
             }
     }
@@ -434,6 +436,7 @@ __kernel void decoder_learn(
     __global const float* visible_gates,
     __global const float* activations,
     __global float* weights,
+    __global unsigned char* usages,
     int4 visible_size,
     int4 hidden_size,
     int radius,
@@ -514,4 +517,28 @@ __kernel void decoder_learn(
                 weights[wi] += delta * visible_gates[visible_column_index];
             }
         }
+
+    if (gc == target_state) {
+        // update usages
+        for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
+            for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
+                int2 visible_column_pos = (int2)(ix, iy);
+
+                int visible_column_index = iy + visible_size.y * ix;
+
+                int2 offset = visible_column_pos - field_lower_bound;
+
+                int wi_start = visible_size.z * (offset.y + diam * (offset.x + diam * hidden_cell_index));
+
+                for (int t = 0; t < visible_size.w; t++) {
+                    int slice = (history_pos + t) % visible_size.w;
+
+                    int visible_state = visible_states[visible_column_index + num_visible_columns * slice];
+
+                    int wi = t + visible_size.w * (visible_state + wi_start);
+
+                    usages[wi] = min(255, usages[wi] + 1);
+                }
+            }
+    }
 }
