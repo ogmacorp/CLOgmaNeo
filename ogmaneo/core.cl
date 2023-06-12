@@ -430,9 +430,10 @@ __kernel void decoder_activate_gates(
 
 __kernel void decoder_learn(
     __global const int* visible_states,
+    __global const int* hidden_states,
     __global const int* target_hidden_states,
     __global const float* visible_gates,
-    __global const float* activations,
+    __global float* activations,
     __global float* weights,
     __global unsigned char* usages,
     int4 visible_size,
@@ -461,6 +462,7 @@ __kernel void decoder_learn(
     __local int num_visible_columns;
 
     __local int target_state;
+    __local int hidden_state;
 
     int gt = get_global_id(2) / hidden_size.z;
     int gc = get_global_id(2) % hidden_size.z;
@@ -486,14 +488,43 @@ __kernel void decoder_learn(
         num_hidden_columns = hidden_size.x * hidden_size.y;
         num_visible_columns = visible_size.x * visible_size.y;
 
-        target_state = target_hidden_states[hidden_column_index + num_hidden_columns * gslice];
+        int hidden_state_index = hidden_column_index + num_hidden_columns * gslice;
+
+        target_state = target_hidden_states[hidden_state_index];
+        hidden_state = hidden_states[hidden_state_index];
+    }
+
+    barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+
+    if (gc == hidden_state) {
+        int hidden_cell_index_max = gt + hidden_size.w * (hidden_state + hidden_size.z * hidden_column_index);
+
+        float max_activation = activations[hidden_cell_index_max];
+
+        float total_activation = 0.0f;
+
+        for (int c = 0; c < hidden_size.z; c++) {
+            int hidden_cell_index = gt + hidden_size.w * (c + hidden_size.z * hidden_column_index);
+
+            activations[hidden_cell_index] = exp(activations[hidden_cell_index] - max_activation);
+
+            total_activation += activations[hidden_cell_index];
+        }
+
+        float scale = 1.0f / max(0.0001f, total_activation);
+
+        for (int c = 0; c < hidden_size.z; c++) {
+            int hidden_cell_index = gt + hidden_size.w * (c + hidden_size.z * hidden_column_index);
+
+            activations[hidden_cell_index] *= scale;
+        }
     }
 
     barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 
     int hidden_cell_index = gt + hidden_size.w * (gc + hidden_size.z * hidden_column_index);
 
-    float delta = lr * ((gc == target_state) - sigmoid(activations[hidden_cell_index]));
+    float delta = lr * ((gc == target_state) - activations[hidden_cell_index]);
 
     for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
         for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {

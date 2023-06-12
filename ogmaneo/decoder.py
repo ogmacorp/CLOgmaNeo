@@ -144,7 +144,7 @@ class Decoder:
                 vec_visible_size = np.array(list(vld.size), dtype=np.int32)
 
                 self.decoder_learn_kernel(cq, (self.hidden_size[0], self.hidden_size[1], self.hidden_size[2] * self.hidden_size[3]), (1, 1, self.hidden_size[2]),
-                        vl.visible_states_prev.data, target_hidden_states.data, vl.visible_gates.data, self.activations.data, vl.weights.data, vl.usages.data,
+                        vl.visible_states_prev.data, self.hidden_states.data, target_hidden_states.data, vl.visible_gates.data, self.activations.data, vl.weights.data, vl.usages.data,
                         vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
                         np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
                         np.int32(history_pos), np.int32(target_pos), np.int32(target_temporal_horizon),
