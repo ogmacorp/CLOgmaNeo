@@ -6,12 +6,6 @@
 //  in the CLOGMANEO_LICENSE.md file included in this distribution.
 // ----------------------------------------------------------------------------
 
-// --- Helpers ---
-
-float sigmoid(float x) {
-    return tanh(x * 0.5f) * 0.5f + 0.5f;
-}
-
 // --- Core SPH ---
 
 __kernel void accum_activations(

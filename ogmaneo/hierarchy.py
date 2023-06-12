@@ -233,6 +233,28 @@ class Hierarchy:
 
         return self.decoders[0][i].hidden_states
 
+    def sample_prediction(self, i, temperature=1.0) -> np.array:
+        assert(self.decoders[0][i] is not None)
+
+        if temperature == 0.0:
+            return get_predicted_states(i).get()
+
+        size = self.decoders[0][i].hidden_size
+
+        activations = self.decoders[0][i].activations.get().reshape((size[0] * size[1], size[2]))
+
+        if temperature != 1.0:
+            # Curve
+            activations = np.power(activations, 1.0 / temperature)
+
+            totals = np.sum(activations, axis=1, keepdims=True)
+
+            activations = np.divide(activations, np.repeat(totals, repeats=activations.shape[1], axis=1))
+
+        states = (activations.cumsum(1) > np.random.rand(activations.shape[0])[:,None]).argmax(1)
+
+        return states.ravel()
+
     def write(self, grp: h5py.Group):
         grp.attrs['io_descs'] = np.void(pickle.dumps(self.io_descs))
         grp.attrs['lds'] = np.void(pickle.dumps(self.lds))
