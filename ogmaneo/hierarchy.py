@@ -228,12 +228,12 @@ class Hierarchy:
                 else:
                     self.decoders[i][0].step(cq, decoder_visible_states, self.histories[i][0], 0, self.history_pos[i], self.lds[i].temporal_horizon, learn_enabled)
 
-    def get_predicted_states(self, i) -> cl.array.Array:
+    def get_predicted_states(self, i: int) -> cl.array.Array:
         assert(self.decoders[0][i] is not None)
 
         return self.decoders[0][i].hidden_states
 
-    def sample_prediction(self, i, temperature=1.0) -> np.array:
+    def sample_prediction(self, i: int, temperature: float = 1.0) -> np.array:
         assert(self.decoders[0][i] is not None)
 
         if temperature == 0.0:
@@ -277,8 +277,8 @@ class Hierarchy:
 
         grp.attrs['updates'] = np.void(pickle.dumps(self.updates))
 
-    def set_input_importance(self, i, importance):
+    def set_input_importance(self, i: int, importance: float):
         self.encoders[0].vlds[i].importance = importance
 
-    def get_input_importance(self, i):
+    def get_input_importance(self, i: int):
         return self.encoders[0].vlds[i].importance
