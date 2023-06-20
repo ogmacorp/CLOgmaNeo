@@ -233,6 +233,11 @@ class Hierarchy:
 
         return self.decoders[0][i].hidden_states
 
+    def get_predicted_activations(self, i: int) -> cl.array.Array:
+        assert(self.decoders[0][i] is not None)
+
+        return self.decoders[0][i].activations
+
     def sample_prediction(self, i: int, temperature: float = 1.0) -> np.array:
         assert(self.decoders[0][i] is not None)
 
@@ -241,7 +246,7 @@ class Hierarchy:
 
         size = self.decoders[0][i].hidden_size
 
-        activations = self.decoders[0][i].activations.get().reshape((size[0] * size[1], size[2]))
+        activations = self.decoders[0][i].activations.get().reshape((size[0] * size[1], size[2]), order='F')
 
         if temperature != 1.0:
             # Curve
