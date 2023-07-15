@@ -292,12 +292,17 @@ class Hierarchy:
             fd.write(struct.pack("iiiiiii", *ld.hidden_size, ld.up_radius, ld.down_radius, ld.ticks_per_update, ld.temporal_horizon))
 
         for i in range(len(self.lds)):
-            for j in range(len(self.histories[i])):
-                write_from_buffer(fd, self.histories[i][j])
+            if i == 0:
+                for j in range(len(self.histories[i])):
+                    write_from_buffer(fd, self.histories[i][j])
 
-            for j in range(len(self.decoders[i])):
-                if self.decoders[i][j] is not None:
-                    self.decoders[i][j].write(fd)
+                for j in range(len(self.decoders[i])):
+                    if self.decoders[i][j] is not None:
+                        self.decoders[i][j].write(fd)
+            else:
+                write_from_buffer(fd, self.histories[i][0])
+
+                self.decoders[i][0].write(fd)
 
             self.encoders[i].write(fd)
             
