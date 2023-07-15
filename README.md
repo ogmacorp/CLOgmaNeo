@@ -1,6 +1,6 @@
 <!---
   CLOgmaNeo
-  Copyright(c) 2022 Ogma Intelligent Systems Corp. All rights reserved.
+  Copyright(c) 2023 Ogma Intelligent Systems Corp. All rights reserved.
 
   This copy of OgmaNeo is licensed to you under the terms described
   in the CLOGMANEO_LICENSE.md file included in this distribution.
@@ -17,7 +17,6 @@ Welcome to the [Ogma](https://ogmacorp.com) CLOgmaNeo Python library. It impleme
 ## Requirements
 
 - pyopencl
-- h5py
 
 ## Installation
 
