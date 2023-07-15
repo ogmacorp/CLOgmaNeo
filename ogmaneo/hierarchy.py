@@ -12,14 +12,14 @@ import pyopencl.array
 import pyopencl.clrandom
 import math
 from dataclasses import dataclass
-from enum import Enum
+from enum import IntEnum
 from .encoder import Encoder
 from .decoder import Decoder
 import io
 import struct
 from .helpers import *
 
-class IOType(Enum):
+class IOType(IntEnum):
     NONE = 0
     PREDICTION = 1
 
@@ -162,7 +162,7 @@ class Hierarchy:
 
                     io_history.append(cl.array.empty(cq, (num_prev_columns * self.lds[i].temporal_horizon,), np.int32))
 
-                    write_from_buffer(fd, io_history[-1])
+                    read_into_buffer(fd, io_history[-1])
 
                     temporal_decoders = [ Decoder(cq, prog, fd=fd) ]
 
@@ -289,11 +289,11 @@ class Hierarchy:
             fd.write(struct.pack("iiiiii", *io_desc.size, io_desc.t, io_desc.up_radius, io_desc.down_radius))
 
         for ld in self.lds:
-            fd.write(struct.pack("iiiiiii", *ld.size, ld.up_radius, ld.down_radius, ld.ticks_per_update, ld.temporal_horizon))
+            fd.write(struct.pack("iiiiiii", *ld.hidden_size, ld.up_radius, ld.down_radius, ld.ticks_per_update, ld.temporal_horizon))
 
         for i in range(len(self.lds)):
             for j in range(len(self.histories[i])):
-                write_from_buffer(self.histories[i][j])
+                write_from_buffer(fd, self.histories[i][j])
 
             for j in range(len(self.decoders[i])):
                 if self.decoders[i][j] is not None:

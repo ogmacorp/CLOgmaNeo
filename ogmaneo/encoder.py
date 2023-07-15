@@ -190,7 +190,7 @@ class Encoder:
     def write(self, fd: io.IOBase):
         fd.write(struct.pack("iii", *self.hidden_size))
 
-        write_from_buffer(self.hidden_states)
+        write_from_buffer(fd, self.hidden_states)
 
         fd.write(struct.pack("i", len(self.vlds)))
 
@@ -200,8 +200,8 @@ class Encoder:
 
             fd.write(struct.pack("iiiiif", *vld.size, vld.radius, vld.importance))
 
-            write_from_buffer(vl.weights)
-            write_from_buffer(vl.usages)
+            write_from_buffer(fd, vl.weights)
+            write_from_buffer(fd, vl.usages)
 
         fd.write(struct.pack("ff", self.lr, self.gcurve))
 

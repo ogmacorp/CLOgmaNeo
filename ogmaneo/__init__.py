@@ -7,7 +7,7 @@
 # ----------------------------------------------------------------------------
 
 import pyopencl as cl
-import importlib_resources as res
+import importlib.resources as res
 
 def load_prog(ctx: cl.Context, kernel_file: str = 'core.cl'):
     kernels_src = ''

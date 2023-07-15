@@ -190,8 +190,8 @@ class ImageEnc:
     def write(self, fd: io.IOBase):
         fd.write(struct.pack("iii", *self.hidden_size))
 
-        write_from_buffer(self.hidden_states)
-        write_from_buffer(self.hidden_rates)
+        write_from_buffer(fd, self.hidden_states)
+        write_from_buffer(fd, self.hidden_rates)
 
         fd.write(struct.pack("i", len(self.vlds)))
 
@@ -201,7 +201,7 @@ class ImageEnc:
 
             fd.write(struct.pack("iiii", *vld.size, vld.radius))
 
-            write_from_buffer(vl.weights)
-            write_from_buffer(vl.reconstruction)
+            write_from_buffer(fd, vl.weights)
+            write_from_buffer(fd, vl.reconstruction)
 
         fd.write(struct.pack("ff", self.lr, self.falloff))
