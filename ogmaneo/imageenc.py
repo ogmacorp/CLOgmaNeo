@@ -12,8 +12,9 @@ import pyopencl.array
 import pyopencl.clrandom
 import math
 from dataclasses import dataclass
-import h5py
-import pickle
+import io
+import struct
+from .helpers import *
 
 class ImageEnc:
     @dataclass
@@ -25,8 +26,8 @@ class ImageEnc:
         weights: cl.array.Array
         reconstruction: cl.array.Array
 
-    def __init__(self, cq: cl.CommandQueue, prog: cl.Program, prog_extra: cl.Program, hidden_size: (int, int, int) = (4, 4, 16), vlds: [ VisibleLayerDesc ] = [], grp: h5py.Group = None):
-        if grp is None:
+    def __init__(self, cq: cl.CommandQueue, prog: cl.Program, prog_extra: cl.Program, hidden_size: (int, int, int) = (4, 4, 16), vlds: [ VisibleLayerDesc ] = [], fd: io.IOBase = None):
+        if fd is None:
             self.hidden_size = hidden_size
 
             num_hidden_columns = hidden_size[0] * hidden_size[1]
@@ -62,7 +63,7 @@ class ImageEnc:
             self.falloff = 4.0
 
         else: # Load from h5py group
-            self.hidden_size = pickle.loads(grp.attrs['hidden_size'].tobytes())
+            self.hidden_size = struct.unpack("iii", fd.read(3 * np.int32.itemsize))
             
             num_hidden_columns = self.hidden_size[0] * self.hidden_size[1]
             num_hidden_cells = num_hidden_columns * self.hidden_size[2]
@@ -71,15 +72,20 @@ class ImageEnc:
             self.hidden_states = cl.array.empty(cq, (num_hidden_columns,), np.int32)
             self.hidden_rates = cl.array.empty(cq, (num_hidden_cells,), np.float32)
 
-            self.hidden_states.set(np.array(grp['hidden_states'][:], np.int32))
-            self.hidden_rates.set(np.array(grp['hidden_rates'][:], np.float32))
+            read_into_buffer(fd, self.hidden_states)
+            read_into_buffer(fd, self.hidden_rates)
+            
+            num_visible_layers = struct.unpack("i", fd.read(np.int32.itemsize))[0]
 
-            self.vlds = pickle.loads(grp.attrs['vlds'].tobytes())
+            self.vlds = []
             self.vls = []
 
             for i in range(len(self.vlds)):
-                vld = self.vlds[i]
+                vld = self.VisibleLayerDesc()
                 vl = self.VisibleLayer()
+
+                vld.size = struct.unpack("iii", fd.read(3 * np.int32.itemsize))
+                vld.radius = struct.unpack("i", fd.read(np.int32.itemsize))[0]
 
                 num_visible_columns = vld.size[0] * vld.size[1]
                 num_visible_cells = num_visible_columns * vld.size[2]
@@ -91,14 +97,13 @@ class ImageEnc:
                 vl.weights = cl.array.empty(cq, (num_weights,), np.float32)
                 vl.reconstruction = cl.array.empty(cq, (num_visible_cells,), np.float32)
 
-                vl.weights.set(np.array(grp['weights' + str(i)][:], np.float32))
-                vl.reconstruction.set(np.array(grp['reconstruction' + str(i)][:], np.float32))
+                read_into_buffer(fd, vl.weights)
+                read_into_buffer(fd, vl.reconstruction)
 
                 self.vls.append(vl)
 
             # Hyperparameters
-            self.lr = pickle.loads(grp.attrs['lr'].tobytes())
-            self.falloff = pickle.loads(grp.attrs['falloff'].tobytes())
+            self.lr, self.falloff = struct.unpack("ff", fd.read(2 * np.float32.itemsize))
 
         # Kernels
         self.image_enc_accum_activations_kernel = prog_extra.image_enc_accum_activations
@@ -182,17 +187,21 @@ class ImageEnc:
                     np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
                     np.array([ self.hidden_size[0] / vld.size[0], self.hidden_size[1] / vld.size[1] ], dtype=np.float32))
 
-    def write(self, grp: h5py.Group):
-        grp.attrs['hidden_size'] = np.void(pickle.dumps(self.hidden_size))
+    def write(self, fd: io.IOBase):
+        fd.write(struct.pack("iii", *self.hidden_size))
 
-        grp.create_dataset('hidden_states', data=self.hidden_states.get())
-        grp.create_dataset('hidden_rates', data=self.hidden_rates.get())
+        write_from_buffer(self.hidden_states)
+        write_from_buffer(self.hidden_rates)
 
-        grp.attrs['vlds'] = np.void(pickle.dumps(self.vlds))
+        fd.write(struct.pack("i", len(self.vlds)))
 
         for i in range(len(self.vls)):
-            grp.create_dataset('weights' + str(i), data=self.vls[i].weights.get())
-            grp.create_dataset('reconstruction' + str(i), data=self.vls[i].reconstruction.get())
+            vld = self.vlds[i]
+            vl = self.vls[i]
 
-        grp.attrs['lr'] = np.void(pickle.dumps(self.lr))
-        grp.attrs['falloff'] = np.void(pickle.dumps(self.falloff))
+            fd.write(struct.pack("iiii", *vld.size, vld.radius))
+
+            write_from_buffer(vl.weights)
+            write_from_buffer(vl.reconstruction)
+
+        fd.write(struct.pack("ff", self.lr, self.falloff))
