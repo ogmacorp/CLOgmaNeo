@@ -19,9 +19,9 @@ from .helpers import *
 class Encoder:
     @dataclass
     class VisibleLayerDesc:
-        size: (int, int, int, int) # Width, height, column size, temporal size
-        radius: int
-        importance: float
+        size: (int, int, int, int) = (4, 4, 16, 1) # Width, height, column size, temporal size
+        radius: int = 2
+        importance: float = 1.0
 
     class VisibleLayer:
         weights: cl.array.Array
@@ -66,7 +66,7 @@ class Encoder:
             self.gcurve = 8.0
 
         else: # Load from h5py group
-            self.hidden_size = struct.unpack("iii", fd.read(3 * np.int32.itemsize))
+            self.hidden_size = struct.unpack("iii", fd.read(3 * np.dtype(np.int32).itemsize))
             
             num_hidden_columns = self.hidden_size[0] * self.hidden_size[1]
             num_hidden_cells = num_hidden_columns * self.hidden_size[2]
@@ -76,7 +76,7 @@ class Encoder:
 
             read_into_buffer(fd, self.hidden_states)
             
-            num_visible_layers = struct.unpack("i", fd.read(np.int32.itemsize))[0]
+            num_visible_layers = struct.unpack("i", fd.read(np.dtype(np.int32).itemsize))[0]
 
             self.usage_sums = cl.array.empty(cq, (num_hidden_columns,), np.float32)
             self.hidden_gates = cl.array.zeros(cq, (num_hidden_columns,), np.float32)
@@ -88,8 +88,8 @@ class Encoder:
                 vld = self.VisibleLayerDesc()
                 vl = self.VisibleLayer()
 
-                vld.size = struct.unpack("iiii", fd.read(4 * np.int32.itemsize))
-                vld.radius, vld.importance = struct.unpack("if", fd.read(np.int32.itemsize + np.float32.itemsize))
+                vld.size = struct.unpack("iiii", fd.read(4 * np.dtype(np.int32).itemsize))
+                vld.radius, vld.importance = struct.unpack("if", fd.read(np.dtype(np.int32).itemsize + np.dtype(np.float32).itemsize))
 
                 num_visible_columns = vld.size[0] * vld.size[1] * vld.size[3]
                 num_visible_cells = num_visible_columns * vld.size[2]
@@ -109,7 +109,7 @@ class Encoder:
                 self.vls.append(vl)
 
             # Parameters
-            self.lr, self.gcurve = struct.unpack("ff", fd.read(2 * np.float32.itemsize))
+            self.lr, self.gcurve = struct.unpack("ff", fd.read(2 * np.dtype(np.float32).itemsize))
 
         # Kernels
         self.accum_activations_kernel = prog.accum_activations

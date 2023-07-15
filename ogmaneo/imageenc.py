@@ -63,7 +63,7 @@ class ImageEnc:
             self.falloff = 4.0
 
         else: # Load from h5py group
-            self.hidden_size = struct.unpack("iii", fd.read(3 * np.int32.itemsize))
+            self.hidden_size = struct.unpack("iii", fd.read(3 * np.dtype(np.int32).itemsize))
             
             num_hidden_columns = self.hidden_size[0] * self.hidden_size[1]
             num_hidden_cells = num_hidden_columns * self.hidden_size[2]
@@ -75,7 +75,7 @@ class ImageEnc:
             read_into_buffer(fd, self.hidden_states)
             read_into_buffer(fd, self.hidden_rates)
             
-            num_visible_layers = struct.unpack("i", fd.read(np.int32.itemsize))[0]
+            num_visible_layers = struct.unpack("i", fd.read(np.dtype(np.int32).itemsize))[0]
 
             self.vlds = []
             self.vls = []
@@ -84,8 +84,8 @@ class ImageEnc:
                 vld = self.VisibleLayerDesc()
                 vl = self.VisibleLayer()
 
-                vld.size = struct.unpack("iii", fd.read(3 * np.int32.itemsize))
-                vld.radius = struct.unpack("i", fd.read(np.int32.itemsize))[0]
+                vld.size = struct.unpack("iii", fd.read(3 * np.dtype(np.int32).itemsize))
+                vld.radius = struct.unpack("i", fd.read(np.dtype(np.int32).itemsize))[0]
 
                 num_visible_columns = vld.size[0] * vld.size[1]
                 num_visible_cells = num_visible_columns * vld.size[2]
@@ -103,7 +103,7 @@ class ImageEnc:
                 self.vls.append(vl)
 
             # Hyperparameters
-            self.lr, self.falloff = struct.unpack("ff", fd.read(2 * np.float32.itemsize))
+            self.lr, self.falloff = struct.unpack("ff", fd.read(2 * np.dtype(np.float32).itemsize))
 
         # Kernels
         self.image_enc_accum_activations_kernel = prog_extra.image_enc_accum_activations

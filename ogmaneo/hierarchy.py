@@ -106,7 +106,7 @@ class Hierarchy:
             self.updates = len(lds) * [ False ]
 
         else: # Load from h5py group
-            num_io, num_layers = struct.unpack("ii", fd.read(2 * np.int32.itemsize))
+            num_io, num_layers = struct.unpack("ii", fd.read(2 * np.dtype(np.int32).itemsize))
 
             self.io_descs = []
             self.lds = []
@@ -118,19 +118,19 @@ class Hierarchy:
 
             # IO descs
             for i in range(num_io):
-                io_desc = IODesc()
+                io_desc = self.IODesc()
 
-                io_desc.size = struct.unpack("iii", fd.read(3 * np.int32.itemsize))
-                io_desc.t, io_desc.up_radius, io_desc.down_radius = struct.unpack("iii", fd.read(3 * np.int32.itemsize))
+                io_desc.size = struct.unpack("iii", fd.read(3 * np.dtype(np.int32).itemsize))
+                io_desc.t, io_desc.up_radius, io_desc.down_radius = struct.unpack("iii", fd.read(3 * np.dtype(np.int32).itemsize))
 
                 self.io_descs.append(io_desc)
 
             # Layer descs
             for i in range(num_layers):
-                ld = LayerDesc()
+                ld = self.LayerDesc()
                 
-                ld.hidden_size = struct.unpack("iii", fd.read(3 * np.int32.itemsize))
-                ld.up_radius, ld.down_radius, ld.ticks_per_update, ld.temporal_horizon = struct.unpack("iiii", fd.read(4 * np.int32.itemsize))
+                ld.hidden_size = struct.unpack("iii", fd.read(3 * np.dtype(np.int32).itemsize))
+                ld.up_radius, ld.down_radius, ld.ticks_per_update, ld.temporal_horizon = struct.unpack("iiii", fd.read(4 * np.dtype(np.int32).itemsize))
 
                 self.lds.append(ld)
 
