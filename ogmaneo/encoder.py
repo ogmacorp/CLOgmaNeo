@@ -55,7 +55,7 @@ class Encoder:
                 area = diam * diam
                 num_weights = num_hidden_cells * area * vld.size[2] * vld.size[3]
 
-                vl.weights = cl.clrandom.rand(cq, (num_weights,), np.float32, a=0.99, b=1.0)
+                vl.weights = cl.clrandom.rand(cq, (num_weights,), np.float32, a=0.0, b=1.0)
                 vl.usages = cl.array.zeros(cq, (num_weights,), np.uint8)
                 vl.reconstruction = cl.array.empty(cq, (num_visible_cells,), np.float32)
 
@@ -84,7 +84,7 @@ class Encoder:
             self.vlds = []
             self.vls = []
 
-            for i in range(len(self.vlds)):
+            for i in range(num_visible_layers):
                 vld = self.VisibleLayerDesc()
                 vl = self.VisibleLayer()
 

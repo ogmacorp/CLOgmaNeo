@@ -80,7 +80,7 @@ class ImageEnc:
             self.vlds = []
             self.vls = []
 
-            for i in range(len(self.vlds)):
+            for i in range(num_visible_layers):
                 vld = self.VisibleLayerDesc()
                 vl = self.VisibleLayer()
 

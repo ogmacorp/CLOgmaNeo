@@ -179,7 +179,7 @@ class Hierarchy:
             self.ticks_per_update = read_array(fd, num_layers, np.int32).tolist()
 
             self.history_pos = read_array(fd, num_layers, np.int32).tolist()
-            self.updates = read_array(fd, num_layers, np.uint8).astype(np.bool).tolist()
+            self.updates = list(map(bool, read_array(fd, num_layers, np.uint8).tolist()))
 
     def step(self, cq: cl.CommandQueue, input_states: [ cl.array.Array ], learn_enabled: bool = True):
         # Push front
