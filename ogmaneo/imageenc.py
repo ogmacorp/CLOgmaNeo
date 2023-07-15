@@ -100,6 +100,7 @@ class ImageEnc:
                 read_into_buffer(fd, vl.weights)
                 read_into_buffer(fd, vl.reconstruction)
 
+                self.vlds.append(vld)
                 self.vls.append(vl)
 
             # Hyperparameters
