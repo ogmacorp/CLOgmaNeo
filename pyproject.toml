@@ -15,8 +15,7 @@ classifiers = [
 ]
 keywords = ["sph", "ai", "ml"]
 dependencies = [
-    "pyopencl",
-    "h5py"
+    "pyopencl"
 ]
 requires-python = ">=3.9"
 

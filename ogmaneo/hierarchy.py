@@ -15,8 +15,9 @@ from dataclasses import dataclass
 from enum import Enum
 from .encoder import Encoder
 from .decoder import Decoder
-import h5py
-import pickle
+import io
+import struct
+from .helpers import *
 
 class IOType(Enum):
     NONE = 0
@@ -27,19 +28,19 @@ class Hierarchy:
     class IODesc:
         size: (int, int, int) = (4, 4, 16)
         t: IOType = IOType.PREDICTION
-        e_radius: int = 2
-        d_radius: int = 2
+        up_radius: int = 2
+        down_radius: int = 2
 
     @dataclass
     class LayerDesc:
         hidden_size: (int, int, int) = (4, 4, 16)
-        e_radius: int = 2
-        d_radius: int = 2
+        up_radius: int = 2
+        down_radius: int = 2
         ticks_per_update: int = 2
         temporal_horizon: int = 2
 
-    def __init__(self, cq: cl.CommandQueue, prog: cl.Program, io_descs: [ IODesc ] = [], lds: [ LayerDesc ] = [], grp: h5py.Group = None):
-        if grp is None:
+    def __init__(self, cq: cl.CommandQueue, prog: cl.Program, io_descs: [ IODesc ] = [], lds: [ LayerDesc ] = [], fd: io.IOBase = None):
+        if fd is None:
             self.io_descs = io_descs
             self.lds = lds
 
@@ -61,12 +62,12 @@ class Hierarchy:
                         num_io_columns = io_descs[j].size[0] * io_descs[j].size[1]
 
                         # For each timestep
-                        e_vlds.append(Encoder.VisibleLayerDesc(size=(io_descs[j].size[0], io_descs[j].size[1], io_descs[j].size[2], lds[i].temporal_horizon), radius=io_descs[j].e_radius, importance=1.0))
+                        e_vlds.append(Encoder.VisibleLayerDesc(size=(io_descs[j].size[0], io_descs[j].size[1], io_descs[j].size[2], lds[i].temporal_horizon), radius=io_descs[j].up_radius, importance=1.0))
 
                         io_history.append(cl.array.zeros(cq, (num_io_columns * lds[i].temporal_horizon,), np.int32))
 
                         if io_descs[j].t == IOType.PREDICTION:
-                            d_vld = Decoder.VisibleLayerDesc(size=(lds[i].hidden_size[0], lds[i].hidden_size[1], lds[i].hidden_size[2], 2 if i < len(lds) - 1 else 1), radius=io_descs[j].d_radius)
+                            d_vld = Decoder.VisibleLayerDesc(size=(lds[i].hidden_size[0], lds[i].hidden_size[1], lds[i].hidden_size[2], 2 if i < len(lds) - 1 else 1), radius=io_descs[j].down_radius)
 
                             io_decoders.append(Decoder(cq, prog, (io_descs[j].size[0], io_descs[j].size[1], io_descs[j].size[2], 1), [ d_vld ]))
                         else:
@@ -81,9 +82,9 @@ class Hierarchy:
 
                     io_history.append(cl.array.zeros(cq, (num_prev_columns * lds[i].temporal_horizon,), np.int32))
 
-                    e_vlds = [ Encoder.VisibleLayerDesc(size=(lds[i - 1].hidden_size[0], lds[i - 1].hidden_size[1], lds[i - 1].hidden_size[2], lds[i].temporal_horizon), radius=lds[i].e_radius, importance=1.0) ]
+                    e_vlds = [ Encoder.VisibleLayerDesc(size=(lds[i - 1].hidden_size[0], lds[i - 1].hidden_size[1], lds[i - 1].hidden_size[2], lds[i].temporal_horizon), radius=lds[i].up_radius, importance=1.0) ]
 
-                    d_vld = Decoder.VisibleLayerDesc(size=(lds[i].hidden_size[0], lds[i].hidden_size[1], lds[i].hidden_size[2], 2 if i < len(lds) - 1 else 1), radius=lds[i].d_radius)
+                    d_vld = Decoder.VisibleLayerDesc(size=(lds[i].hidden_size[0], lds[i].hidden_size[1], lds[i].hidden_size[2], 2 if i < len(lds) - 1 else 1), radius=lds[i].down_radius)
 
                     temporal_decoders = [ Decoder(cq, prog, (lds[i - 1].hidden_size[0], lds[i - 1].hidden_size[1], lds[i - 1].hidden_size[2], lds[i].ticks_per_update), [ d_vld ]) ]
 
@@ -105,13 +106,33 @@ class Hierarchy:
             self.updates = len(lds) * [ False ]
 
         else: # Load from h5py group
-            self.io_descs = pickle.loads(grp.attrs['io_descs'].tobytes())
-            self.lds = pickle.loads(grp.attrs['lds'].tobytes())
+            num_io, num_layers = struct.unpack("ii", fd.read(2 * np.int32.itemsize))
+
+            self.io_descs = []
+            self.lds = []
 
             self.encoders = []
             self.decoders = []
             self.histories = []
             self.complete_states = []
+
+            # IO descs
+            for i in range(num_io):
+                io_desc = IODesc()
+
+                io_desc.size = struct.unpack("iii", fd.read(3 * np.int32.itemsize))
+                io_desc.t, io_desc.up_radius, io_desc.down_radius = struct.unpack("iii", fd.read(3 * np.int32.itemsize))
+
+                self.io_descs.append(io_desc)
+
+            # Layer descs
+            for i in range(num_layers):
+                ld = LayerDesc()
+                
+                ld.hidden_size = struct.unpack("iii", fd.read(3 * np.int32.itemsize))
+                ld.up_radius, ld.down_radius, ld.ticks_per_update, ld.temporal_horizon = struct.unpack("iiii", fd.read(4 * np.int32.itemsize))
+
+                self.lds.append(ld)
 
             # Create layers
             for i in range(len(self.lds)):
@@ -124,12 +145,13 @@ class Hierarchy:
                     for j in range(len(self.io_descs)):
                         num_io_columns = self.io_descs[j].size[0] * self.io_descs[j].size[1]
 
-                        # For each timestep
                         io_history.append(cl.array.empty(cq, (num_io_columns * self.lds[i].temporal_horizon,), np.int32))
-                        io_history[-1].set(np.array(grp['histories' + str(i) + '_' + str(j)][:], np.int32))
 
+                        read_into_buffer(fd, io_history[-1])
+
+                    for j in range(len(self.io_descs)):
                         if self.io_descs[j].t == IOType.PREDICTION:
-                            io_decoders.append(Decoder(cq, prog, grp=grp['decoders' + str(i) + '_' + str(j)]))
+                            io_decoders.append(Decoder(cq, prog, fd=fd))
                         else:
                             io_decoders.append(None) # Mark no decoder
 
@@ -139,25 +161,25 @@ class Hierarchy:
                     num_prev_columns = self.lds[i - 1].hidden_size[0] * self.lds[i - 1].hidden_size[1]
 
                     io_history.append(cl.array.empty(cq, (num_prev_columns * self.lds[i].temporal_horizon,), np.int32))
-                    io_history[-1].set(np.array(grp['histories' + str(i) + '_0'][:], np.int32))
 
-                    temporal_decoders = [ Decoder(cq, prog, grp=grp['decoders' + str(i) + '_0']) ]
+                    write_from_buffer(fd, io_history[-1])
+
+                    temporal_decoders = [ Decoder(cq, prog, fd=fd) ]
 
                     self.decoders.append(temporal_decoders)
 
-                self.encoders.append(Encoder(cq, prog, grp=grp['encoders' + str(i)]))
+                self.encoders.append(Encoder(cq, prog, fd=fd))
 
                 self.histories.append(io_history)
 
                 if i < len(self.lds) - 1:
                     self.complete_states.append(cl.array.empty(cq, (self.lds[i].hidden_size[0] * self.lds[i].hidden_size[1] * 2,), dtype=np.int32))
 
-            self.ticks = pickle.loads(grp.attrs['ticks'].tobytes())
-            self.ticks_per_update = pickle.loads(grp.attrs['ticks_per_update'].tobytes())
+            self.ticks = read_array(fd, num_layers, np.int32).tolist()
+            self.ticks_per_update = read_array(fd, num_layers, np.int32).tolist()
 
-            self.history_pos = pickle.loads(grp.attrs['history_pos'].tobytes())
-
-            self.updates = pickle.loads(grp.attrs['updates'].tobytes())
+            self.history_pos = read_array(fd, num_layers, np.int32).tolist()
+            self.updates = read_array(fd, num_layers, np.uint8).astype(np.bool).tolist()
 
     def step(self, cq: cl.CommandQueue, input_states: [ cl.array.Array ], learn_enabled: bool = True):
         # Push front
@@ -260,27 +282,29 @@ class Hierarchy:
 
         return states.ravel()
 
-    def write(self, grp: h5py.Group):
-        grp.attrs['io_descs'] = np.void(pickle.dumps(self.io_descs))
-        grp.attrs['lds'] = np.void(pickle.dumps(self.lds))
+    def write(self, fd: io.IOBase):
+        fd.write(struct.pack("ii", len(self.io_descs), len(self.lds)))
+
+        for io_desc in self.io_descs:
+            fd.write(struct.pack("iiiiii", *io_desc.size, io_desc.t, io_desc.up_radius, io_desc.down_radius))
+
+        for ld in self.lds:
+            fd.write(struct.pack("iiiiiii", *ld.size, ld.up_radius, ld.down_radius, ld.ticks_per_update, ld.temporal_horizon))
 
         for i in range(len(self.lds)):
             for j in range(len(self.histories[i])):
-                grp.create_dataset('histories' + str(i) + '_' + str(j), data=self.histories[i][j].get())
+                write_from_buffer(self.histories[i][j])
 
             for j in range(len(self.decoders[i])):
-                grp.create_group('decoders' + str(i) + '_' + str(j))
-                self.decoders[i][j].write(grp['decoders' + str(i) + '_' + str(j)])
+                if self.decoders[i][j] is not None:
+                    self.decoders[i][j].write(fd)
 
-            grp.create_group('encoders' + str(i))
-            self.encoders[i].write(grp['encoders' + str(i)])
+            self.encoders[i].write(fd)
             
-        grp.attrs['ticks'] = np.void(pickle.dumps(self.ticks))
-        grp.attrs['ticks_per_update'] = np.void(pickle.dumps(self.ticks_per_update))
-
-        grp.attrs['history_pos'] = np.void(pickle.dumps(self.history_pos))
-
-        grp.attrs['updates'] = np.void(pickle.dumps(self.updates))
+        write_array(fd, np.array(self.ticks, dtype=np.int32))
+        write_array(fd, np.array(self.ticks_per_update, dtype=np.int32))
+        write_array(fd, np.array(self.history_pos, dtype=np.int32))
+        write_array(fd, np.array(self.updates, dtype=np.uint8))
 
     def set_input_importance(self, i: int, importance: float):
         self.encoders[0].vlds[i].importance = importance

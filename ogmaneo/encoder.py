@@ -12,10 +12,9 @@ import pyopencl.array
 import pyopencl.clrandom
 import math
 from dataclasses import dataclass
-import h5py
-import pickle
-
-MAX_USAGE = 999999
+import io
+import struct
+from .helpers import *
 
 class Encoder:
     @dataclass
@@ -29,8 +28,8 @@ class Encoder:
         usages: cl.array.Array
         reconstruction: cl.array.Array
 
-    def __init__(self, cq: cl.CommandQueue, prog: cl.Program, hidden_size: (int, int, int) = (4, 4, 16), vlds: [ VisibleLayerDesc ] = [], grp: h5py.Group = None):
-        if grp is None:
+    def __init__(self, cq: cl.CommandQueue, prog: cl.Program, hidden_size: (int, int, int) = (4, 4, 16), vlds: [ VisibleLayerDesc ] = [], fd: io.IOBase = None):
+        if fd is None:
             self.hidden_size = hidden_size
 
             num_hidden_columns = hidden_size[0] * hidden_size[1]
@@ -67,7 +66,7 @@ class Encoder:
             self.gcurve = 8.0
 
         else: # Load from h5py group
-            self.hidden_size = pickle.loads(grp.attrs['hidden_size'].tobytes())
+            self.hidden_size = struct.unpack("iii", fd.read(3 * np.int32.itemsize))
             
             num_hidden_columns = self.hidden_size[0] * self.hidden_size[1]
             num_hidden_cells = num_hidden_columns * self.hidden_size[2]
@@ -75,17 +74,22 @@ class Encoder:
             self.activations = cl.array.empty(cq, (num_hidden_cells,), np.float32)
             self.hidden_states = cl.array.empty(cq, (num_hidden_columns,), np.int32)
 
+            read_into_buffer(fd, self.hidden_states)
+            
+            num_visible_layers = struct.unpack("i", fd.read(np.int32.itemsize))[0]
+
             self.usage_sums = cl.array.empty(cq, (num_hidden_columns,), np.float32)
             self.hidden_gates = cl.array.zeros(cq, (num_hidden_columns,), np.float32)
 
-            self.hidden_states.set(np.array(grp['hidden_states'][:], np.int32))
-            
-            self.vlds = pickle.loads(grp.attrs['vlds'].tobytes())
+            self.vlds = []
             self.vls = []
 
             for i in range(len(self.vlds)):
-                vld = self.vlds[i]
+                vld = self.VisibleLayerDesc()
                 vl = self.VisibleLayer()
+
+                vld.size = struct.unpack("iiii", fd.read(4 * np.int32.itemsize))
+                vld.radius, vld.importance = struct.unpack("if", fd.read(np.int32.itemsize + np.float32.itemsize))
 
                 num_visible_columns = vld.size[0] * vld.size[1] * vld.size[3]
                 num_visible_cells = num_visible_columns * vld.size[2]
@@ -98,14 +102,14 @@ class Encoder:
                 vl.usages = cl.array.empty(cq, (num_weights,), np.uint8)
                 vl.reconstruction = cl.array.empty(cq, (num_visible_cells,), np.float32)
 
-                vl.weights.set(np.array(grp['weights' + str(i)][:], np.float32))
-                vl.usages.set(np.array(grp['usages' + str(i)][:], np.uint8))
+                read_into_buffer(fd, vl.weights)
+                read_into_buffer(fd, vl.usages)
 
+                self.vlds.append(vld)
                 self.vls.append(vl)
 
-            # Hyperparameters
-            self.lr = pickle.loads(grp.attrs['lr'].tobytes())
-            self.gcurve = pickle.loads(grp.attrs['gcurve'].tobytes())
+            # Parameters
+            self.lr, self.gcurve = struct.unpack("ff", fd.read(2 * np.float32.itemsize))
 
         # Kernels
         self.accum_activations_kernel = prog.accum_activations
@@ -183,19 +187,23 @@ class Encoder:
                         np.int32(history_pos),
                         np.float32(self.lr))
 
-    def write(self, grp: h5py.Group):
-        grp.attrs['hidden_size'] = np.void(pickle.dumps(self.hidden_size))
+    def write(self, fd: io.IOBase):
+        fd.write(struct.pack("iii", *self.hidden_size))
 
-        grp.create_dataset('hidden_states', data=self.hidden_states.get())
+        write_from_buffer(self.hidden_states)
 
-        grp.attrs['vlds'] = np.void(pickle.dumps(self.vlds))
+        fd.write(struct.pack("i", len(self.vlds)))
 
         for i in range(len(self.vls)):
-            grp.create_dataset('weights' + str(i), data=self.vls[i].weights.get())
-            grp.create_dataset('usages' + str(i), data=self.vls[i].usages.get())
+            vld = self.vlds[i]
+            vl = self.vls[i]
 
-        grp.attrs['lr'] = np.void(pickle.dumps(self.lr))
-        grp.attrs['gcurve'] = np.void(pickle.dumps(self.gcurve))
+            fd.write(struct.pack("iiiiif", *vld.size, vld.radius, vld.importance))
+
+            write_from_buffer(vl.weights)
+            write_from_buffer(vl.usages)
+
+        fd.write(struct.pack("ff", self.lr, self.gcurve))
 
 
         

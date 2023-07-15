@@ -12,23 +12,24 @@ import pyopencl.array
 import pyopencl.clrandom
 import math
 from dataclasses import dataclass
-import h5py
-import pickle
+import io
+import struct
+from .helpers import *
 
 class Decoder:
     @dataclass
     class VisibleLayerDesc:
         size: (int, int, int, int) # Width, height, column size, temporal size
         radius: int
-
+        
     class VisibleLayer:
         weights: cl.array.Array
         usages: cl.array.Array
         visible_states_prev: cl.array.Array
         visible_gates: cl.array.Array
 
-    def __init__(self, cq: cl.CommandQueue, prog: cl.Program, hidden_size: (int, int, int, int) = (4, 4, 16, 1), vlds: [ VisibleLayerDesc ] = [], grp: h5py.Group = None):
-        if grp is None:
+    def __init__(self, cq: cl.CommandQueue, prog: cl.Program, hidden_size: (int, int, int, int) = (4, 4, 16, 1), vlds: [ VisibleLayerDesc ] = [], fd: io.IOBase = None):
+        if fd is None:
             self.hidden_size = hidden_size
 
             num_hidden_columns = hidden_size[0] * hidden_size[1] * hidden_size[3]
@@ -59,12 +60,12 @@ class Decoder:
 
                 self.vls.append(vl)
 
-            # Hyperparameters
-            self.lr = 4.0
+            # Parameters
+            self.lr = 2.0
             self.gcurve = 8.0
 
         else: # Load from h5py group
-            self.hidden_size = pickle.loads(grp.attrs['hidden_size'].tobytes())
+            self.hidden_size = struct.unpack("iiii", fd.read(4 * np.int32.itemsize))
 
             num_hidden_columns = self.hidden_size[0] * self.hidden_size[1] * self.hidden_size[3]
             num_hidden_cells = num_hidden_columns * self.hidden_size[2]
@@ -72,15 +73,20 @@ class Decoder:
             self.activations = cl.array.empty(cq, (num_hidden_cells,), np.float32)
             self.hidden_states = cl.array.empty(cq, (num_hidden_columns,), np.int32)
 
-            self.activations.set(np.array(grp['activations'][:], np.float32))
-            self.hidden_states.set(np.array(grp['hidden_states'][:], np.int32))
+            read_into_buffer(fd, self.activations)
+            read_into_buffer(fd, self.hidden_states)
             
-            self.vlds = pickle.loads(grp.attrs['vlds'].tobytes())
+            num_visible_layers = struct.unpack("i", fd.read(np.int32.itemsize))[0]
+
+            self.vlds = []
             self.vls = []
 
-            for i in range(len(self.vlds)):
-                vld = self.vlds[i]
+            for i in range(num_visible_layers):
+                vld = self.VisibleLayerDesc()
                 vl = self.VisibleLayer()
+
+                vld.size = struct.unpack("iiii", fd.read(4 * np.int32.itemsize))
+                vld.radius = struct.unpack("i", fd.read(np.int32.itemsize))[0]
 
                 num_visible_columns = vld.size[0] * vld.size[1]
                 num_visible_cells = num_visible_columns * vld.size[2]
@@ -93,16 +99,17 @@ class Decoder:
                 vl.usages = cl.array.empty(cq, (num_weights,), np.uint8)
                 vl.visible_states_prev = cl.array.empty(cq, (num_visible_columns * vld.size[3],), np.int32)
 
-                vl.weights.set(np.array(grp['weights' + str(i)][:], np.float32))
-                vl.usages.set(np.array(grp['usages' + str(i)][:], np.uint8))
-                vl.visible_states_prev.set(np.array(grp['visible_states_prev' + str(i)][:], np.int32))
+                read_into_buffer(fd, vl.weights)
+                read_into_buffer(fd, vl.usages)
+                read_into_buffer(fd, vl.visible_states_prev)
 
                 vl.visible_gates = cl.array.zeros(cq, (num_visible_columns * vld.size[3],), np.float32)
 
+                self.vlds.append(vld)
                 self.vls.append(vl)
 
-            self.lr = pickle.loads(grp.attrs['lr'].tobytes())
-            self.gcurve = pickle.loads(grp.attrs['gcurve'].tobytes())
+            # Parameters
+            self.lr, self.gcurve = struct.unpack("ff", fd.read(2 * np.float32.itemsize))
 
         # Kernels
         self.accum_activations_kernel = prog.accum_activations
@@ -179,18 +186,22 @@ class Decoder:
 
             vl.visible_states_prev[:] = visible_states[i][:]
 
-    def write(self, grp: h5py.Group):
-        grp.attrs['hidden_size'] = np.void(pickle.dumps(self.hidden_size))
+    def write(self, fd: io.IOBase):
+        fd.write(struct.pack("iiii", *self.hidden_size))
 
-        grp.create_dataset('activations', data=self.activations.get())
-        grp.create_dataset('hidden_states', data=self.hidden_states.get())
+        write_from_buffer(self.activations)
+        write_from_buffer(self.hidden_states)
 
-        grp.attrs['vlds'] = np.void(pickle.dumps(self.vlds))
+        fd.write(struct.pack("i", len(self.vlds)))
 
         for i in range(len(self.vls)):
-            grp.create_dataset('weights' + str(i), data=self.vls[i].weights.get())
-            grp.create_dataset('usages' + str(i), data=self.vls[i].usages.get())
-            grp.create_dataset('visible_states_prev' + str(i), data=self.vls[i].visible_states_prev.get())
+            vld = self.vlds[i]
+            vl = self.vls[i]
 
-        grp.attrs['lr'] = np.void(pickle.dumps(self.lr))
-        grp.attrs['gcurve'] = np.void(pickle.dumps(self.gcurve))
+            fd.write(struct.pack("iiiii", *vld.size, vld.radius))
+
+            write_from_buffer(vl.weights)
+            write_from_buffer(vl.usages)
+            write_from_buffer(vl.visible_states_prev)
+
+        fd.write(struct.pack("ff", self.lr, self.gcurve))
