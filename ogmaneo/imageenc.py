@@ -23,7 +23,7 @@ class ImageEnc:
         radius: int = 4
 
     class VisibleLayer:
-        weights: cl.array.Array
+        protos: cl.array.Array
         reconstruction: cl.array.Array
 
     def __init__(self, cq: cl.CommandQueue, prog: cl.Program, prog_extra: cl.Program, hidden_size: (int, int, int) = (4, 4, 16), vlds: [ VisibleLayerDesc ] = [], fd: io.IOBase = None):
@@ -53,6 +53,7 @@ class ImageEnc:
                 area = diam * diam
                 num_weights = num_hidden_cells * area * vld.size[2]
 
+                vl.protos = cl.clrandom.rand(cq, (num_weights,), np.float32, a=0.0, b=1.0)
                 vl.weights = cl.clrandom.rand(cq, (num_weights,), np.float32, a=0.0, b=1.0)
                 vl.reconstruction = cl.array.zeros(cq, (num_visible_cells,), np.float32)
 
@@ -60,7 +61,8 @@ class ImageEnc:
 
             # Hyperparameters
             self.lr = 0.1
-            self.falloff = 4.0
+            self.rr = 0.03
+            self.falloff = 6.0
 
         else: # Load from h5py group
             self.hidden_size = struct.unpack("iii", fd.read(3 * np.dtype(np.int32).itemsize))
@@ -94,9 +96,11 @@ class ImageEnc:
                 area = diam * diam
                 num_weights = num_hidden_cells * area * vld.size[2]
 
+                vl.protos = cl.array.empty(cq, (num_weights,), np.float32)
                 vl.weights = cl.array.empty(cq, (num_weights,), np.float32)
                 vl.reconstruction = cl.array.empty(cq, (num_visible_cells,), np.float32)
 
+                read_into_buffer(fd, vl.protos)
                 read_into_buffer(fd, vl.weights)
                 read_into_buffer(fd, vl.reconstruction)
 
@@ -104,16 +108,17 @@ class ImageEnc:
                 self.vls.append(vl)
 
             # Hyperparameters
-            self.lr, self.falloff = struct.unpack("ff", fd.read(2 * np.dtype(np.float32).itemsize))
+            self.lr, self.rr, self.falloff = struct.unpack("fff", fd.read(3 * np.dtype(np.float32).itemsize))
 
         # Kernels
         self.image_enc_accum_activations_kernel = prog_extra.image_enc_accum_activations
         self.inhibit_activations_kernel = prog.inhibit_activations
-        self.image_enc_learn_kernel = prog_extra.image_enc_learn
+        self.image_enc_learn_protos_kernel = prog_extra.image_enc_learn_protos
         self.image_enc_decay_kernel = prog_extra.image_enc_decay
+        self.image_enc_learn_weights_kernel = prog_extra.image_enc_learn_weights
         self.image_enc_reconstruct_kernel = prog_extra.image_enc_reconstruct
 
-    def step(self, cq: cl.CommandQueue, visible_states: [ cl.array.Array ], learn_enabled: bool = True):
+    def step(self, cq: cl.CommandQueue, visible_states: [ cl.array.Array ], learn_enabled: bool = True, learn_recon: bool = True):
         assert(len(visible_states) == len(self.vls))
 
         # Clear
@@ -133,7 +138,7 @@ class ImageEnc:
             vec_visible_size = np.array(list(vld.size) + [ 1 ], dtype=np.int32)
 
             self.image_enc_accum_activations_kernel(cq, self.hidden_size, (1, 1, self.hidden_size[2]),
-                    visible_states[i].data, vl.weights.data, self.activations.data,
+                    visible_states[i].data, vl.protos.data, self.activations.data,
                     vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
                     np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32))
 
@@ -142,6 +147,9 @@ class ImageEnc:
                 np.float32(1.0 / len(self.vls)))
 
         if learn_enabled:
+            if learn_recon:
+                self.reconstruct(cq, self.hidden_states)
+
             for i in range(len(self.vls)):
                 vld = self.vlds[i]
                 vl = self.vls[i]
@@ -151,11 +159,21 @@ class ImageEnc:
                 # Pad 3-vecs to 4-vecs
                 vec_visible_size = np.array(list(vld.size) + [ 1 ], dtype=np.int32)
 
-                self.image_enc_learn_kernel(cq, self.hidden_size, (1, 1, self.hidden_size[2]),
-                        visible_states[i].data, self.hidden_states.data, self.hidden_rates.data, vl.weights.data,
+                self.image_enc_learn_protos_kernel(cq, self.hidden_size, (1, 1, self.hidden_size[2]),
+                        visible_states[i].data, self.hidden_states.data, self.hidden_rates.data, vl.protos.data,
                         vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
                         np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
                         np.float32(self.falloff))
+
+                if learn_recon:
+                    self.image_enc_learn_weights_kernel(cq, vld.size, (1, 1, vld.size[2]),
+                            visible_states[i].data, self.hidden_states.data, vl.reconstruction.data, vl.weights.data, 
+                            vec_visible_size, vec_hidden_size, np.int32(vld.radius),
+                            np.array([ math.ceil(diam * self.hidden_size[0] / vld.size[0] * 0.5), math.ceil(diam * self.hidden_size[1] / vld.size[1] * 0.5) ], np.int32),
+                            np.int32(diam),
+                            np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
+                            np.array([ self.hidden_size[0] / vld.size[0], self.hidden_size[1] / vld.size[1] ], dtype=np.float32),
+                            np.float32(self.rr))
 
         # Decay
         self.image_enc_decay_kernel(cq, self.hidden_size, None,
@@ -202,7 +220,8 @@ class ImageEnc:
 
             fd.write(struct.pack("iiii", *vld.size, vld.radius))
 
+            write_from_buffer(fd, vl.protos)
             write_from_buffer(fd, vl.weights)
             write_from_buffer(fd, vl.reconstruction)
 
-        fd.write(struct.pack("ff", self.lr, self.falloff))
+        fd.write(struct.pack("fff", self.lr, self.rr, self.falloff))
