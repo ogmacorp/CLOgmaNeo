@@ -62,7 +62,7 @@ class Encoder:
                 self.vls.append(vl)
 
             # Hyperparameters
-            self.lr = 1.0
+            self.lr = 0.5
             self.gcurve = 8.0
 
         else: # Load from h5py group
