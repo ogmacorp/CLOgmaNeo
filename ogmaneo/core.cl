@@ -170,7 +170,7 @@ __kernel void encoder_accum_usages(
             }
         }
 
-    usage_sums[hidden_column_index] += (sum / 255.0f) / count * importance;
+    usage_sums[hidden_column_index] += sum / count * importance;
 }
 
 __kernel void encoder_activate_gates(
@@ -421,7 +421,7 @@ __kernel void decoder_activate_gates(
             }
         }
 
-    visible_gates[temporal_visible_column_index] = exp(-gcurve * (sum / 255.0f) / (count * hidden_size.z * hidden_size.w));
+    visible_gates[temporal_visible_column_index] = exp(-gcurve * sum / (count * hidden_size.z * hidden_size.w));
 }
 
 __kernel void decoder_learn(
