@@ -64,24 +64,24 @@ __kernel void accum_activations(
 
     float sum = 0.0f;
 
-    for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
-        for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
-            int2 visible_column_pos = (int2)(ix, iy);
+    for (int t = 0; t < visible_size.w; t++) {
+        int slice = (history_pos + t) % visible_size.w;
 
-            int visible_column_index = iy + visible_size.y * ix;
+        for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
+            for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
+                int2 visible_column_pos = (int2)(ix, iy);
 
-            int2 offset = visible_column_pos - field_lower_bound;
+                int visible_column_index = iy + visible_size.y * ix;
 
-            for (int t = 0; t < visible_size.w; t++) {
-                int slice = (history_pos + t) % visible_size.w;
+                int2 offset = visible_column_pos - field_lower_bound;
 
                 int visible_state = visible_states[visible_column_index + num_visible_columns * slice];
 
-                int wi = gc + hidden_size.z * (gt + hidden_size.w * (t + visible_size.w * (visible_state + visible_size.z * (offset.y + diam * offset.x + diam * hidden_column_index))));
+                int wi = gc + hidden_size.z * (gt + hidden_size.w * (t + visible_size.w * (visible_state + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_column_index)))));
 
                 sum += weights[wi];
             }
-        }
+    }
 
     sum /= count;
 
@@ -157,7 +157,7 @@ __kernel void encoder_accum_usages(
 
             for (int c = 0; c < visible_size.z; c++) {
                 for (int t = 0; t < visible_size.w; t++) {
-                    int wi = t + visible_size.w * (hidden_state + hidden_size.z * (c + visible_size.z * (offset.y + diam * offset.x + diam * hidden_column_index)));
+                    int wi = t + visible_size.w * (hidden_state + hidden_size.z * (c + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_column_index))));
 
                     sum += usages[wi];
                 }
@@ -265,7 +265,7 @@ __kernel void encoder_learn(
             {
                 int2 offset = (int2)(visible_column_pos.x - visible_center.x + radius, visible_column_pos.y - visible_center.y + radius);
 
-                int wi = gt + visible_size.w * (hidden_state + hidden_size.z * (gc + visible_size.z * (offset.y + diam * offset.x + diam * hidden_column_index)));
+                int wi = hidden_state + hidden_size.z * (gt + visible_size.w * (gc + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_column_index))));
 
                 sum += weights[wi];
                 count++;
@@ -294,6 +294,8 @@ __kernel void encoder_learn(
     if (max_index != target_state) {
         float delta = lr * ((gc == target_state) - exp(min(0.0f, sum - 1.0f)));
 
+        int usage_increment = (gc == target_state);
+
         for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
             for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
                 int2 hidden_column_pos = (int2)(ix, iy);
@@ -311,35 +313,11 @@ __kernel void encoder_learn(
                 {
                     int2 offset = (int2)(visible_column_pos.x - visible_center.x + radius, visible_column_pos.y - visible_center.y + radius);
 
-                    int wi = gt + visible_size.w * (hidden_state + hidden_size.z * (gc + visible_size.z * (offset.y + diam * offset.x + diam * hidden_column_index)));
+                    int wi = hidden_state + hidden_size.z * (gt + visible_size.w * (gc + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_column_index))));
 
                     weights[wi] += delta * hidden_gates[hidden_column_index];
-                }
-            }
-    }
 
-    if (gc == target_state) {
-        // usage update
-        for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
-            for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
-                int2 hidden_column_pos = (int2)(ix, iy);
-
-                int hidden_column_index = iy + hidden_size.y * ix;
-
-                int hidden_state = hidden_states[hidden_column_index];
-
-                // Project
-                int2 visible_center = (int2)((hidden_column_pos.x + 0.5f) * h_to_v.x, (hidden_column_pos.y + 0.5f) * h_to_v.y);
-
-                // Bounds check
-                if (visible_column_pos.x >= visible_center.x - radius && visible_column_pos.x <= visible_center.x + radius &&
-                    visible_column_pos.y >= visible_center.y - radius && visible_column_pos.y <= visible_center.y + radius)
-                {
-                    int2 offset = (int2)(visible_column_pos.x - visible_center.x + radius, visible_column_pos.y - visible_center.y + radius);
-
-                    int wi = gt + visible_size.w * (hidden_state + hidden_size.z * (gc + visible_size.z * (offset.y + diam * offset.x + diam * hidden_column_index)));
-
-                    usages[wi] = min(255, usages[wi] + 1);
+                    usages[wi] = min(255, usages[wi] + usage_increment);
                 }
             }
     }
@@ -400,12 +378,8 @@ __kernel void decoder_activate_gates(
                 int2 offset = (int2)(visible_column_pos.x - visible_center.x + radius, visible_column_pos.y - visible_center.y + radius);
 
                 for (int c = 0; c < hidden_size.z; c++) {
-                    int hidden_cells_start = hidden_size.w * (c + hidden_size.z * hidden_column_index);
-
                     for (int t = 0; t < hidden_size.w; t++) {
-                        int hidden_cell_index = t + hidden_cells_start;
-
-                        int wi = gt + visible_size.w * (t + hidden_size.w * (c + hidden_size.z * (target_state + visible_size.z * (offset.y + diam * offset.x + diam * hidden_column_index))));
+                        int wi = c + hidden_size.z * (t + hidden_size.w * (gt + visible_size.w * (target_state + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_column_index)))));
 
                         sum += usages[wi];
                     }
@@ -516,27 +490,11 @@ __kernel void decoder_learn(
 
     float delta = lr * ((gc == target_state) - activations[hidden_cell_index]);
 
-    for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
-        for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
-            int2 visible_column_pos = (int2)(ix, iy);
+    int usage_increment = (gc == target_state);
 
-            int visible_column_index = iy + visible_size.y * ix;
+    for (int t = 0; t < visible_size.w; t++) {
+        int slice = (history_pos + t) % visible_size.w;
 
-            int2 offset = visible_column_pos - field_lower_bound;
-
-            for (int t = 0; t < visible_size.w; t++) {
-                int slice = (history_pos + t) % visible_size.w;
-
-                int visible_state = visible_states[visible_column_index + num_visible_columns * slice];
-
-                int wi = t + visible_size.w * (gt + hidden_size.w * (gc + hidden_size.z * (visible_state + visible_size.z * (offset.y + diam * offset.x + diam * hidden_column_index))));
-
-                weights[wi] += delta * visible_gates[t + visible_size.w * visible_column_index];
-            }
-        }
-
-    if (gc == target_state) {
-        // update usages
         for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
             for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
                 int2 visible_column_pos = (int2)(ix, iy);
@@ -545,15 +503,13 @@ __kernel void decoder_learn(
 
                 int2 offset = visible_column_pos - field_lower_bound;
 
-                for (int t = 0; t < visible_size.w; t++) {
-                    int slice = (history_pos + t) % visible_size.w;
+                int visible_state = visible_states[visible_column_index + num_visible_columns * slice];
 
-                    int visible_state = visible_states[visible_column_index + num_visible_columns * slice];
+                int wi = gc + hidden_size.z * (gt + hidden_size.w * (t + visible_size.w * (visible_state + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_column_index)))));
 
-                    int wi = t + visible_size.w * (gt + hidden_size.w * (gc + hidden_size.z * (visible_state + visible_size.z * (offset.y + diam * offset.x + diam * hidden_column_index))));
+                weights[wi] += delta * visible_gates[t + visible_size.w * visible_column_index];
 
-                    usages[wi] = min(255, usages[wi] + 1);
-                }
+                usages[wi] = min(255, usages[wi] + usage_increment);
             }
     }
 }
