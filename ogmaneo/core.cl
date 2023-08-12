@@ -64,7 +64,7 @@ __kernel void decoder_activate(
         num_visible_columns = visible_size.x * visible_size.y;
     }
 
-    barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+    barrier(CLK_LOCAL_MEM_FENCE);
 
     int gt = get_global_id(2) / hidden_size.z;
     int gc = get_global_id(2) % hidden_size.z;
@@ -126,7 +126,7 @@ __kernel void decoder_activate(
     activations[hidden_cell_index] += sum * importance;
 
     if (inhibit) {
-        barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+        barrier(CLK_LOCAL_MEM_FENCE);
 
         if (gc == 0) {
             int max_index = 0;
@@ -217,7 +217,7 @@ __kernel void encoder_activate(
         num_visible_columns = visible_size.x * visible_size.y;
     }
 
-    barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+    barrier(CLK_LOCAL_MEM_FENCE);
 
     int gc = get_global_id(2);
 
@@ -249,7 +249,7 @@ __kernel void encoder_activate(
     activations[hidden_cell_index] += sum * importance;
 
     if (inhibit) {
-        barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+        barrier(CLK_LOCAL_MEM_FENCE);
 
         if (gc == 0) {
             int max_index = 0;
@@ -347,7 +347,7 @@ __kernel void encoder_learn(
         num_visible_columns = visible_size.x * visible_size.y;
     }
 
-    barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+    barrier(CLK_LOCAL_MEM_FENCE);
 
     int gt = get_global_id(2) / visible_size.z;
     int gc = get_global_id(2) % visible_size.z;
@@ -389,7 +389,7 @@ __kernel void encoder_learn(
 
     reconstruction[temporal_visible_cell_index] = sum;
 
-    barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+    barrier(CLK_LOCAL_MEM_FENCE);
 
     if (get_local_id(2) == 0) {
         for (int c = 0; c < visible_size.z; c++) {
@@ -402,12 +402,10 @@ __kernel void encoder_learn(
         }
     }
 
-    barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+    barrier(CLK_LOCAL_MEM_FENCE);
 
     if (max_index != target_state) {
         float delta = lr * ((gc == target_state) - exp(min(0.0f, sum - 1.0f)));
-
-        int usage_increment = (gc == target_state);
 
         for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
             for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
