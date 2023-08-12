@@ -131,7 +131,7 @@ class Decoder:
 
                 vec_visible_size = np.array(list(vld.size), dtype=np.int32)
 
-                self.update_gates_kernel(cq, (vld.size[0], vld.size[1]), None,
+                self.update_gates_kernel(cq, (vld.size[0], vld.size[1], vld.size[3]), None,
                         visible_states[i].data, vl.visible_usages.data, vl.visible_gates.data,
                         vec_visible_size,
                         np.float32(self.gcurve))
@@ -151,7 +151,7 @@ class Decoder:
             inhibit = (i == len(self.vls) - 1)
             lr = float(inhibit and learn_enabled) * self.lr
 
-            self.decoder_activate_kernel(cq, (self.hidden_size[0], self.hidden_size[1], self.hidden_size[2] * self.hidden_size[3]), (1, 1, self.hidden_size[2]),
+            self.decoder_activate_kernel(cq, (self.hidden_size[0], self.hidden_size[1], self.hidden_size[2] * self.hidden_size[3]), (1, 1, self.hidden_size[2] * self.hidden_size[3]),
                     visible_states[i].data, vl.visible_states_prev.data, vl.visible_gates.data, target_hidden_states.data, vl.weights.data, self.activations.data, self.hidden_states.data,
                     vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
                     np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),

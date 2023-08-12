@@ -287,10 +287,9 @@ __kernel void update_gates(
     int2 column_pos = (int2)(get_global_id(0), get_global_id(1));
     int column_index = column_pos.y + size.y * column_pos.x;
 
-    int gt = get_global_id(2) / size.z;
-    int gc = get_global_id(2) % size.z;
+    int gt = get_global_id(2);
 
-    int state = states[column_index];
+    int state = states[column_index + gt * size.x * size.y];
 
     int temporal_column_index = gt + size.w * column_index;
 
@@ -328,9 +327,6 @@ __kernel void encoder_learn(
     __local int2 iter_lower_bound;
     __local int2 iter_upper_bound;
 
-    __local int max_index;
-    __local float max_activation;
-
     __local int num_visible_columns;
 
     // Pre-compute for work group
@@ -346,9 +342,6 @@ __kernel void encoder_learn(
         
         iter_lower_bound = (int2)(max(0, field_lower_bound.x), max(0, field_lower_bound.y));
         iter_upper_bound = (int2)(min(hidden_size.x - 1, hidden_center.x + reverse_radii.x), min(hidden_size.y - 1, hidden_center.y + reverse_radii.y));
-
-        max_index = 0;
-        max_activation = -999999.0f;
 
         num_visible_columns = visible_size.x * visible_size.y;
     }
@@ -395,45 +388,28 @@ __kernel void encoder_learn(
 
     reconstruction[temporal_visible_cell_index] = sum;
 
-    barrier(CLK_LOCAL_MEM_FENCE);
+    float delta = lr * ((gc == target_state) - exp(min(0.0f, sum - 1.0f)));
 
-    if (get_local_id(2) == 0) {
-        for (int c = 0; c < visible_size.z; c++) {
-            float recon = reconstruction[gt + visible_size.w * (c + visible_size.z * visible_column_index)];
+    for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
+        for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
+            int2 hidden_column_pos = (int2)(ix, iy);
 
-            if (recon > max_activation) {
-                max_activation = recon;
-                max_index = c;
+            int hidden_column_index = iy + hidden_size.y * ix;
+
+            int hidden_state = hidden_states[hidden_column_index];
+
+            // Project
+            int2 visible_center = (int2)((hidden_column_pos.x + 0.5f) * h_to_v.x, (hidden_column_pos.y + 0.5f) * h_to_v.y);
+
+            // Bounds check
+            if (visible_column_pos.x >= visible_center.x - radius && visible_column_pos.x <= visible_center.x + radius &&
+                visible_column_pos.y >= visible_center.y - radius && visible_column_pos.y <= visible_center.y + radius)
+            {
+                int2 offset = (int2)(visible_column_pos.x - visible_center.x + radius, visible_column_pos.y - visible_center.y + radius);
+
+                int wi = hidden_state + hidden_size.z * (gt + visible_size.w * (gc + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_column_index))));
+
+                weights[wi] += delta * hidden_gates[hidden_column_index];
             }
         }
-    }
-
-    barrier(CLK_LOCAL_MEM_FENCE);
-
-    if (max_index != target_state) {
-        float delta = lr * ((gc == target_state) - exp(min(0.0f, sum - 1.0f)));
-
-        for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
-            for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
-                int2 hidden_column_pos = (int2)(ix, iy);
-
-                int hidden_column_index = iy + hidden_size.y * ix;
-
-                int hidden_state = hidden_states[hidden_column_index];
-
-                // Project
-                int2 visible_center = (int2)((hidden_column_pos.x + 0.5f) * h_to_v.x, (hidden_column_pos.y + 0.5f) * h_to_v.y);
-
-                // Bounds check
-                if (visible_column_pos.x >= visible_center.x - radius && visible_column_pos.x <= visible_center.x + radius &&
-                    visible_column_pos.y >= visible_center.y - radius && visible_column_pos.y <= visible_center.y + radius)
-                {
-                    int2 offset = (int2)(visible_column_pos.x - visible_center.x + radius, visible_column_pos.y - visible_center.y + radius);
-
-                    int wi = hidden_state + hidden_size.z * (gt + visible_size.w * (gc + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_column_index))));
-
-                    weights[wi] += delta * hidden_gates[hidden_column_index];
-                }
-            }
-    }
 }
