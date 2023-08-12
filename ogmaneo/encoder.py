@@ -144,7 +144,7 @@ class Encoder:
                 np.float32(1.0 / len(self.vls)))
 
         if learn_enabled:
-            self.update_gates_kernel(cq, (hidden_size[0], hidden_size[1]), None,
+            self.update_gates_kernel(cq, (self.hidden_size[0], self.hidden_size[1]), None,
                     self.hidden_states.data, self.hidden_usages.data, self.hidden_gates.data,
                     vec_hidden_size,
                     np.float32(self.gcurve))

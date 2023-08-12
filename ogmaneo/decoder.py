@@ -133,7 +133,7 @@ class Decoder:
 
                 vec_visible_size = np.array(list(vld.size), dtype=np.int32)
 
-                self.update_gates_kernel(cq, (vld.size[0], vid.size[1]), None,
+                self.update_gates_kernel(cq, (vld.size[0], vld.size[1]), None,
                         visible_states[i].data, vl.visible_usages.data, vl.visible_gates.data,
                         vec_visible_size,
                         np.float32(self.gcurve))
