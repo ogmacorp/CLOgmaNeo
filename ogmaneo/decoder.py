@@ -36,6 +36,7 @@ class Decoder:
             num_hidden_cells = num_hidden_columns * hidden_size[2]
 
             self.activations = cl.array.zeros(cq, (num_hidden_cells,), np.float32)
+            self.activations_prev = cl.array.zeros(cq, (num_hidden_cells,), np.float32)
             self.hidden_states = cl.array.zeros(cq, (num_hidden_columns,), np.int32)
 
             self.vlds = vlds
@@ -71,6 +72,7 @@ class Decoder:
             num_hidden_cells = num_hidden_columns * self.hidden_size[2]
 
             self.activations = cl.array.empty(cq, (num_hidden_cells,), np.float32)
+            self.activations_prev = cl.array.zeros(cq, (num_hidden_cells,), np.float32)
             self.hidden_states = cl.array.empty(cq, (num_hidden_columns,), np.int32)
 
             read_into_buffer(fd, self.activations)
@@ -137,6 +139,8 @@ class Decoder:
                         np.float32(self.gcurve))
 
         # Clear
+        self.activations_prev[:] = self.activations[:]
+
         self.activations.fill(np.float32(0))
 
         # Accumulate for all visible layers
@@ -152,7 +156,7 @@ class Decoder:
             lr = float(inhibit and learn_enabled) * self.lr
 
             self.decoder_activate_kernel(cq, (self.hidden_size[0], self.hidden_size[1], self.hidden_size[2] * self.hidden_size[3]), (1, 1, self.hidden_size[2] * self.hidden_size[3]),
-                    visible_states[i].data, vl.visible_states_prev.data, vl.visible_gates.data, target_hidden_states.data, vl.weights.data, self.activations.data, self.hidden_states.data,
+                    visible_states[i].data, vl.visible_states_prev.data, vl.visible_gates.data, target_hidden_states.data, self.activations_prev.data, vl.weights.data, self.activations.data, self.hidden_states.data,
                     vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
                     np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
                     np.int32(history_pos), np.int32(target_pos), np.int32(target_temporal_horizon), np.float32(1.0 / len(self.vls)), np.uint8(inhibit), np.float32(lr))

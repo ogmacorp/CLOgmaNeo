@@ -13,6 +13,7 @@ __kernel void decoder_activate(
     __global const int* visible_states_prev,
     __global const float* visible_gates,
     __global const int* target_hidden_states,
+    __global const float* activations_prev,
     __global float* weights,
     __global float* activations,
     __global int* hidden_states,
@@ -79,7 +80,7 @@ __kernel void decoder_activate(
     int hidden_cell_index = gt + hidden_size.w * (gc + hidden_size.z * hidden_column_index);
 
     if (lr != 0.0f) {
-        float delta = lr * ((gc == target_state) - activations[hidden_cell_index]);
+        float delta = lr * ((gc == target_state) - activations_prev[hidden_cell_index]);
 
         for (int t = 0; t < visible_size.w; t++) {
             int slice = (history_pos + t) % visible_size.w;
