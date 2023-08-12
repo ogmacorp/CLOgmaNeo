@@ -55,7 +55,7 @@ __kernel void accum_activations(
         num_visible_columns = visible_size.x * visible_size.y;
     }
 
-    barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+    barrier(CLK_LOCAL_MEM_FENCE);
 
     int gt = get_global_id(2) / hidden_size.z;
     int gc = get_global_id(2) % hidden_size.z;
@@ -189,7 +189,7 @@ __kernel void encoder_learn(
         num_visible_columns = visible_size.x * visible_size.y;
     }
 
-    barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+    barrier(CLK_LOCAL_MEM_FENCE);
 
     int gt = get_global_id(2) / visible_size.z;
     int gc = get_global_id(2) % visible_size.z;
@@ -231,7 +231,7 @@ __kernel void encoder_learn(
 
     reconstruction[temporal_visible_cell_index] = sum;
 
-    barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+    barrier(CLK_LOCAL_MEM_FENCE);
 
     if (get_local_id(2) == 0) {
         for (int c = 0; c < visible_size.z; c++) {
@@ -316,7 +316,7 @@ __kernel void decoder_learn(
 
     int gslice = (target_pos + gt) % target_temporal_horizon;
 
-    barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+    barrier(CLK_LOCAL_MEM_FENCE);
 
     // Pre-compute for work group
     if (get_local_id(2) == 0) {
@@ -341,7 +341,7 @@ __kernel void decoder_learn(
         hidden_state = hidden_states[hidden_state_index];
     }
 
-    barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+    barrier(CLK_LOCAL_MEM_FENCE);
 
     if (gc == hidden_state) {
         int hidden_cell_index_max = gt + hidden_size.w * (hidden_state + hidden_size.z * hidden_column_index);
@@ -367,7 +367,7 @@ __kernel void decoder_learn(
         }
     }
 
-    barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+    barrier(CLK_LOCAL_MEM_FENCE);
 
     int hidden_cell_index = gt + hidden_size.w * (gc + hidden_size.z * hidden_column_index);
 
