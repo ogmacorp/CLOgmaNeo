@@ -25,7 +25,6 @@ class Encoder:
 
     class VisibleLayer:
         weights: cl.array.Array
-        usages: cl.array.Array
         reconstruction: cl.array.Array
 
     def __init__(self, cq: cl.CommandQueue, prog: cl.Program, hidden_size: (int, int, int) = (4, 4, 16), vlds: [ VisibleLayerDesc ] = [], fd: io.IOBase = None):
@@ -38,7 +37,7 @@ class Encoder:
             self.activations = cl.array.empty(cq, (num_hidden_cells,), np.float32)
             self.hidden_states = cl.array.zeros(cq, (num_hidden_columns,), np.int32)
 
-            self.usage_sums = cl.array.empty(cq, (num_hidden_columns,), np.float32)
+            self.hidden_usages = cl.array.zeros(cq, (num_hidden_cells,), np.int32)
             self.hidden_gates = cl.array.zeros(cq, (num_hidden_columns,), np.float32)
 
             self.vlds = vlds
@@ -56,7 +55,6 @@ class Encoder:
                 num_weights = num_hidden_cells * area * vld.size[2] * vld.size[3]
 
                 vl.weights = cl.clrandom.rand(cq, (num_weights,), np.float32, a=0.99, b=1.0)
-                vl.usages = cl.array.zeros(cq, (num_weights,), np.int32)
                 vl.reconstruction = cl.array.empty(cq, (num_visible_cells,), np.float32)
 
                 self.vls.append(vl)
@@ -78,8 +76,10 @@ class Encoder:
             
             num_visible_layers = struct.unpack("i", fd.read(np.dtype(np.int32).itemsize))[0]
 
-            self.usage_sums = cl.array.empty(cq, (num_hidden_columns,), np.float32)
+            self.hidden_usages = cl.array.zeros(cq, (num_hidden_cells,), np.int32)
             self.hidden_gates = cl.array.zeros(cq, (num_hidden_columns,), np.float32)
+
+            read_into_buffer(fd, vl.hidden_usages)
 
             self.vlds = []
             self.vls = []
@@ -99,11 +99,9 @@ class Encoder:
                 num_weights = num_hidden_cells * area * vld.size[2] * vld.size[3]
 
                 vl.weights = cl.array.empty(cq, (num_weights,), np.float32)
-                vl.usages = cl.array.empty(cq, (num_weights,), np.int32)
                 vl.reconstruction = cl.array.empty(cq, (num_visible_cells,), np.float32)
 
                 read_into_buffer(fd, vl.weights)
-                read_into_buffer(fd, vl.usages)
 
                 self.vlds.append(vld)
                 self.vls.append(vl)
@@ -114,7 +112,7 @@ class Encoder:
         # Kernels
         self.accum_activations_kernel = prog.accum_activations
         self.inhibit_activations_kernel = prog.inhibit_activations
-        self.encoder_accum_usages_kernel = prog.encoder_accum_usages
+        self.update_gates_kernel = prog.update_gates
         self.encoder_activate_gates_kernel = prog.encoder_activate_gates
         self.encoder_learn_kernel = prog.encoder_learn
 
@@ -147,27 +145,10 @@ class Encoder:
                 np.float32(1.0 / len(self.vls)))
 
         if learn_enabled:
-            # Clear
-            self.usage_sums.fill(np.float32(0))
-
-            # Accumulate gates for all visible layers
-            for i in range(len(self.vls)):
-                vld = self.vlds[i]
-                vl = self.vls[i]
-
-                diam = vld.radius * 2 + 1
-
-                vec_visible_size = np.array(list(vld.size), dtype=np.int32)
-                
-                self.encoder_accum_usages_kernel(cq, (self.hidden_size[0], self.hidden_size[1]), None,
-                        self.hidden_states.data, vl.usages.data, self.usage_sums.data,
-                        vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
-                        np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
-                        np.float32(vld.importance))
-
-            self.encoder_activate_gates_kernel(cq, (self.hidden_size[0], self.hidden_size[1]), None, self.usage_sums.data, self.hidden_gates.data,
+            self.update_gates_kernel(cq, (hidden_size[0], hidden_size[1]), None,
+                    self.hidden_states.data, self.hidden_usages.data, self.hidden_gates.data,
                     vec_hidden_size,
-                    np.float32(1.0 / len(self.vls)), np.float32(self.gcurve))
+                    np.float32(self.gcurve))
 
             for i in range(len(self.vls)):
                 vld = self.vlds[i]
@@ -178,7 +159,7 @@ class Encoder:
                 vec_visible_size = np.array(list(vld.size), dtype=np.int32)
 
                 self.encoder_learn_kernel(cq, (vld.size[0], vld.size[1], vld.size[2] * vld.size[3]), (1, 1, vld.size[2]),
-                        visible_states[i].data, self.hidden_states.data, self.hidden_gates.data, vl.weights.data, vl.usages.data, vl.reconstruction.data,
+                        visible_states[i].data, self.hidden_states.data, self.hidden_gates.data, vl.weights.data, vl.reconstruction.data,
                         vec_visible_size, vec_hidden_size, np.int32(vld.radius),
                         np.array([ math.ceil(diam * self.hidden_size[0] / vld.size[0] * 0.5), math.ceil(diam * self.hidden_size[1] / vld.size[1] * 0.5) ], np.int32),
                         np.int32(diam),
@@ -192,6 +173,8 @@ class Encoder:
 
         write_from_buffer(fd, self.hidden_states)
 
+        write_from_buffer(fd, self.hidden_usages)
+
         fd.write(struct.pack("i", len(self.vlds)))
 
         for i in range(len(self.vls)):
@@ -201,7 +184,6 @@ class Encoder:
             fd.write(struct.pack("iiiiif", *vld.size, vld.radius, vld.importance))
 
             write_from_buffer(fd, vl.weights)
-            write_from_buffer(fd, vl.usages)
 
         fd.write(struct.pack("ff", self.lr, self.gcurve))
 
