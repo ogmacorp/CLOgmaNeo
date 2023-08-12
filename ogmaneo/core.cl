@@ -107,7 +107,7 @@ __kernel void activate(
                 }
             }
 
-            hidden_states[hidden_column_index + gt * size.x * size.y] = max_index;
+            hidden_states[hidden_column_index + gt * hidden_size.x * hidden_size.y] = max_index;
         }
     }
 }

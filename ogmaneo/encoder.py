@@ -111,7 +111,6 @@ class Encoder:
 
         # Kernels
         self.activate_kernel = prog.activate
-        self.inhibit_activations_kernel = prog.inhibit_activations
         self.update_gates_kernel = prog.update_gates
         self.encoder_learn_kernel = prog.encoder_learn
 
