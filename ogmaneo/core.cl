@@ -44,13 +44,6 @@ __kernel void decoder_activate(
     __local int num_hidden_columns;
     __local int num_visible_columns;
 
-    __local int target_state;
-
-    int gt = get_global_id(2) / hidden_size.z;
-    int gc = get_global_id(2) % hidden_size.z;
-
-    int gslice = (target_pos + gt) % target_temporal_horizon;
-
     // Pre-compute for work group
     if (get_local_id(2) == 0) {
         hidden_column_pos = (int2)(get_global_id(0), get_global_id(1));
@@ -69,13 +62,18 @@ __kernel void decoder_activate(
 
         num_hidden_columns = hidden_size.x * hidden_size.y;
         num_visible_columns = visible_size.x * visible_size.y;
-
-        int hidden_state_index = hidden_column_index + num_hidden_columns * gslice;
-
-        target_state = target_hidden_states[hidden_state_index];
     }
 
     barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+
+    int gt = get_global_id(2) / hidden_size.z;
+    int gc = get_global_id(2) % hidden_size.z;
+
+    int gslice = (target_pos + gt) % target_temporal_horizon;
+
+    int hidden_state_index = hidden_column_index + num_hidden_columns * gslice;
+
+    int target_state = target_hidden_states[hidden_state_index];
 
     int hidden_cell_index = gt + hidden_size.w * (gc + hidden_size.z * hidden_column_index);
 
