@@ -62,7 +62,7 @@ class Decoder:
 
             # Parameters
             self.lr = 2.0
-            self.gcurve = 0.02
+            self.gcurve = 0.001
 
         else: # Load from h5py group
             self.hidden_size = struct.unpack("iiii", fd.read(4 * np.dtype(np.int32).itemsize))

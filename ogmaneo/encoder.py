@@ -61,7 +61,7 @@ class Encoder:
 
             # Hyperparameters
             self.lr = 0.5
-            self.gcurve = 0.02
+            self.gcurve = 0.001
 
         else: # Load from h5py group
             self.hidden_size = struct.unpack("iii", fd.read(3 * np.dtype(np.int32).itemsize))
