@@ -10,6 +10,7 @@
 
 __kernel void decoder_activate(
     __global const int* visible_states,
+    __global const int* visible_states_prev,
     __global const float* visible_gates,
     __global const int* target_hidden_states,
     __global float* weights,
@@ -91,9 +92,9 @@ __kernel void decoder_activate(
 
                     int2 offset = visible_column_pos - field_lower_bound;
 
-                    int visible_state = visible_states[visible_column_index + num_visible_columns * slice];
+                    int visible_state_prev = visible_states_prev[visible_column_index + num_visible_columns * slice];
 
-                    int wi = gc + hidden_size.z * (gt + hidden_size.w * (t + visible_size.w * (visible_state + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_column_index)))));
+                    int wi = gc + hidden_size.z * (gt + hidden_size.w * (t + visible_size.w * (visible_state_prev + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_column_index)))));
 
                     weights[wi] += delta * visible_gates[t + visible_size.w * visible_column_index];
                 }

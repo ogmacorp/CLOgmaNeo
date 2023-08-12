@@ -152,7 +152,7 @@ class Decoder:
             lr = float(inhibit and learn_enabled) * self.lr
 
             self.decoder_activate_kernel(cq, (self.hidden_size[0], self.hidden_size[1], self.hidden_size[2] * self.hidden_size[3]), (1, 1, self.hidden_size[2]),
-                    visible_states[i].data, vl.visible_gates.data, target_hidden_states.data, vl.weights.data, self.activations.data, self.hidden_states.data,
+                    visible_states[i].data, vl.visible_states_prev.data, vl.visible_gates.data, target_hidden_states.data, vl.weights.data, self.activations.data, self.hidden_states.data,
                     vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
                     np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
                     np.int32(history_pos), np.int32(target_pos), np.int32(target_temporal_horizon), np.float32(1.0 / len(self.vls)), np.uint8(inhibit), np.float32(lr))
