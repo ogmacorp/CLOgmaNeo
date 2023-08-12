@@ -287,11 +287,16 @@ __kernel void update_gates(
     int2 column_pos = (int2)(get_global_id(0), get_global_id(1));
     int column_index = column_pos.y + size.y * column_pos.x;
 
+    int gt = get_global_id(2) / size.z;
+    int gc = get_global_id(2) % size.z;
+
     int state = states[column_index];
 
-    int cell_index = state + size.z * column_index;
+    int temporal_column_index = gt + size.w * column_index;
 
-    gates[column_index] = exp(-usages[cell_index] * gcurve);
+    int cell_index = state + size.z * temporal_column_index;
+
+    gates[temporal_column_index] = exp(-usages[cell_index] * gcurve);
     usages[cell_index] = min(999999, usages[cell_index] + 1);
 }
 
