@@ -120,7 +120,7 @@ __kernel void inhibit_activations(
 
 __kernel void encoder_accum_usages(
     __global const int* hidden_states,
-    __global const unsigned char* usages,
+    __global const int* usages,
     __global float* usage_sums,
     int4 visible_size,
     int4 hidden_size,
@@ -185,7 +185,7 @@ __kernel void encoder_learn(
     __global const int* hidden_states,
     __global const float* hidden_gates,
     __global float* weights,
-    __global unsigned char* usages,
+    __global int* usages,
     __global float* reconstruction,
     int4 visible_size,
     int3 hidden_size,
@@ -317,7 +317,7 @@ __kernel void encoder_learn(
 
                     weights[wi] += delta * hidden_gates[hidden_column_index];
 
-                    usages[wi] = min(255, usages[wi] + usage_increment);
+                    usages[wi] = min(999999, usages[wi] + usage_increment);
                 }
             }
     }
@@ -325,7 +325,7 @@ __kernel void encoder_learn(
 
 __kernel void decoder_activate_gates(
     __global const int* visible_states,
-    __global const unsigned char* usages,
+    __global const int* usages,
     __global float* visible_gates,
     int4 visible_size,
     int4 hidden_size,
@@ -399,7 +399,7 @@ __kernel void decoder_learn(
     __global const float* visible_gates,
     __global float* activations,
     __global float* weights,
-    __global unsigned char* usages,
+    __global int* usages,
     int4 visible_size,
     int4 hidden_size,
     int radius,
@@ -509,7 +509,7 @@ __kernel void decoder_learn(
 
                 weights[wi] += delta * visible_gates[t + visible_size.w * visible_column_index];
 
-                usages[wi] = min(255, usages[wi] + usage_increment);
+                usages[wi] = min(999999, usages[wi] + usage_increment);
             }
     }
 }

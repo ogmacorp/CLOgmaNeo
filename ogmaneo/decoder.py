@@ -53,7 +53,7 @@ class Decoder:
                 num_weights = num_hidden_cells * area * vld.size[2] * vld.size[3]
 
                 vl.weights = cl.clrandom.rand(cq, (num_weights,), np.float32, a=-0.01, b=0.01)
-                vl.usages = cl.array.zeros(cq, (num_weights,), np.uint8)
+                vl.usages = cl.array.zeros(cq, (num_weights,), np.int32)
                 vl.visible_states_prev = cl.array.zeros(cq, (num_visible_columns * vld.size[3],), np.int32)
 
                 vl.visible_gates = cl.array.zeros(cq, (num_visible_columns * vld.size[3],), np.float32)
@@ -96,7 +96,7 @@ class Decoder:
                 num_weights = num_hidden_cells * area * vld.size[2] * vld.size[3]
 
                 vl.weights = cl.array.empty(cq, (num_weights,), np.float32)
-                vl.usages = cl.array.empty(cq, (num_weights,), np.uint8)
+                vl.usages = cl.array.empty(cq, (num_weights,), np.int32)
                 vl.visible_states_prev = cl.array.empty(cq, (num_visible_columns * vld.size[3],), np.int32)
 
                 read_into_buffer(fd, vl.weights)
