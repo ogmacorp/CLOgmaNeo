@@ -74,12 +74,12 @@ class Encoder:
 
             read_into_buffer(fd, self.hidden_states)
             
-            num_visible_layers = struct.unpack("i", fd.read(np.dtype(np.int32).itemsize))[0]
-
             self.hidden_usages = cl.array.zeros(cq, (num_hidden_cells,), np.int32)
             self.hidden_gates = cl.array.zeros(cq, (num_hidden_columns,), np.float32)
 
-            read_into_buffer(fd, vl.hidden_usages)
+            read_into_buffer(fd, self.hidden_usages)
+
+            num_visible_layers = struct.unpack("i", fd.read(np.dtype(np.int32).itemsize))[0]
 
             self.vlds = []
             self.vls = []

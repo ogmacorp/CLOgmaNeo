@@ -82,6 +82,34 @@ __kernel void image_enc_accum_activations(
     activations[hidden_cell_index] += sum;
 }
 
+__kernel void image_enc_inhibit_activations(
+    __global float* activations,
+    __global int* states,
+    int4 size,
+    float scale
+) {
+    int2 column_pos = (int2)(get_global_id(0), get_global_id(1));
+    int column_index = column_pos.y + size.y * column_pos.x;
+
+    int max_index = 0;
+    float max_activation = -999999.0f;
+
+    for (int c = 0; c < size.z; c++) {
+        int cell_index = c + size.z * column_index;
+
+        activations[cell_index] *= scale;
+
+        float activation = activations[cell_index];
+
+        if (activation > max_activation) {
+            max_activation = activation;
+            max_index = c;
+        }
+    }
+
+    states[column_index] = max_index;
+}
+
 __kernel void image_enc_learn_protos(
     __global const float* visible_states,
     __global const int* hidden_states,
