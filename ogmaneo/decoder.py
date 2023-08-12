@@ -114,7 +114,7 @@ class Decoder:
             self.lr, self.gcurve = struct.unpack("ff", fd.read(2 * np.dtype(np.float32).itemsize))
 
         # Kernels
-        self.activate_kernel = prog.activate
+        self.decoder_activate_kernel = prog.decoder_activate
         self.update_gates_kernel = prog.update_gates
         self.decoder_learn_kernel = prog.decoder_learn
 
@@ -137,13 +137,6 @@ class Decoder:
                         vec_visible_size,
                         np.float32(self.gcurve))
 
-                self.decoder_learn_kernel(cq, (self.hidden_size[0], self.hidden_size[1], self.hidden_size[2] * self.hidden_size[3]), (1, 1, self.hidden_size[2]),
-                        vl.visible_states_prev.data, self.hidden_states.data, target_hidden_states.data, vl.visible_gates.data, self.activations.data, vl.weights.data,
-                        vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
-                        np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
-                        np.int32(history_pos), np.int32(target_pos), np.int32(target_temporal_horizon),
-                        np.float32(self.lr))
-
         # Clear
         self.activations.fill(np.float32(0))
 
@@ -157,12 +150,13 @@ class Decoder:
             vec_visible_size = np.array(list(vld.size), dtype=np.int32)
 
             inhibit = (i == len(self.vls) - 1)
+            lr = float(inhibit and learn_enabled) * self.lr
 
             self.activate_kernel(cq, (self.hidden_size[0], self.hidden_size[1], self.hidden_size[2] * self.hidden_size[3]), (1, 1, self.hidden_size[2]),
-                    visible_states[i].data, vl.weights.data, self.activations.data, self.hidden_states.data,
+                    visible_states[i].data, vl.visible_gates.data, vl.weights.data, target_hidden_states.data, self.activations.data, self.hidden_states.data,
                     vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
                     np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
-                    np.int32(history_pos), np.float32(1.0 / len(self.vls)), np.uint8(inhibit))
+                    np.int32(history_pos), np.int32(target_pos), np.int32(target_temporal_horizon), np.float32(1.0 / len(self.vls)), np.uint8(inhibit), np.float32(lr))
 
         # Copy to prevs
         for i in range(len(self.vls)):
