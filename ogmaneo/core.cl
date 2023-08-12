@@ -120,7 +120,7 @@ __kernel void inhibit_activations(
 
 __kernel void update_gates(
     __global const int* states,
-    __global const int* usages,
+    __global int* usages,
     __global float* gates,
     int4 size,
     float gcurve

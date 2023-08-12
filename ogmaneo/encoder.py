@@ -113,7 +113,6 @@ class Encoder:
         self.accum_activations_kernel = prog.accum_activations
         self.inhibit_activations_kernel = prog.inhibit_activations
         self.update_gates_kernel = prog.update_gates
-        self.encoder_activate_gates_kernel = prog.encoder_activate_gates
         self.encoder_learn_kernel = prog.encoder_learn
 
     def step(self, cq: cl.CommandQueue, visible_states: [ cl.array.Array ], history_pos: int, learn_enabled: bool = True):
