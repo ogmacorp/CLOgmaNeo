@@ -75,9 +75,9 @@ __kernel void decoder_activate(
         target_state = target_hidden_states[hidden_state_index];
     }
 
-    int hidden_cell_index = gt + hidden_size.w * (gc + hidden_size.z * hidden_column_index);
-
     barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+
+    int hidden_cell_index = gt + hidden_size.w * (gc + hidden_size.z * hidden_column_index);
 
     if (lr != 0.0f) {
         float delta = lr * ((gc == target_state) - activations[hidden_cell_index]);
@@ -221,10 +221,9 @@ __kernel void encoder_activate(
 
     barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 
-    int gt = get_global_id(2) / hidden_size.z;
-    int gc = get_global_id(2) % hidden_size.z;
+    int gc = get_global_id(2);
 
-    int hidden_cell_index = gt + hidden_size.w * (gc + hidden_size.z * hidden_column_index);
+    int hidden_cell_index = gc + hidden_size.z * hidden_column_index;
 
     float sum = 0.0f;
 
@@ -241,7 +240,7 @@ __kernel void encoder_activate(
 
                 int visible_state = visible_states[visible_column_index + num_visible_columns * slice];
 
-                int wi = gc + hidden_size.z * (gt + hidden_size.w * (t + visible_size.w * (visible_state + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_column_index)))));
+                int wi = gc + hidden_size.z * (t + visible_size.w * (visible_state + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_column_index))));
 
                 sum += weights[wi];
             }
@@ -259,7 +258,7 @@ __kernel void encoder_activate(
             float max_activation = -999999.0f;
 
             for (int c = 0; c < hidden_size.z; c++) {
-                float activation = activations[gt + hidden_size.w * (c + hidden_size.z * hidden_column_index)];
+                float activation = activations[c + hidden_size.z * hidden_column_index];
 
                 if (activation > max_activation) {
                     max_activation = activation;
@@ -267,13 +266,12 @@ __kernel void encoder_activate(
                 }
             }
 
-            hidden_states[hidden_column_index + gt * hidden_size.x * hidden_size.y] = max_index;
+            hidden_states[hidden_column_index] = max_index;
 
             if (gate_update) {
-                int hidden_cell_index_max = gt + hidden_size.w * (max_index + hidden_size.z * hidden_column_index);
-                int temporal_hidden_column_index = gt + hidden_size.w * hidden_column_index;
+                int hidden_cell_index_max = max_index + hidden_size.z * hidden_column_index;
 
-                hidden_gates[temporal_hidden_column_index] = exp(-hidden_usages[hidden_cell_index_max] * gcurve);
+                hidden_gates[hidden_column_index] = exp(-hidden_usages[hidden_cell_index_max] * gcurve);
                 hidden_usages[hidden_cell_index_max] = min(999999, hidden_usages[hidden_cell_index_max] + 1);
             }
         }
