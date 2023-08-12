@@ -157,9 +157,9 @@ __kernel void encoder_accum_usages(
 
             for (int c = 0; c < visible_size.z; c++) {
                 for (int t = 0; t < visible_size.w; t++) {
-                    int wi = t + visible_size.w * (hidden_state + hidden_size.z * (c + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_column_index))));
+                    int ui = t + visible_size.w * (c + visible_size.z * (hidden_state + hidden_size.z * (offset.y + diam * (offset.x + diam * hidden_column_index))));
 
-                    sum += usages[wi];
+                    sum += usages[ui];
                 }
             }
         }
@@ -317,7 +317,9 @@ __kernel void encoder_learn(
 
                     weights[wi] += delta * hidden_gates[hidden_column_index];
 
-                    usages[wi] = min(999999, usages[wi] + usage_increment);
+                    int ui = gt + visible_size.w * (gc + visible_size.z * (hidden_state + hidden_size.z * (offset.y + diam * (offset.x + diam * hidden_column_index))));
+
+                    usages[ui] = min(999999, usages[wi] + usage_increment);
                 }
             }
     }
