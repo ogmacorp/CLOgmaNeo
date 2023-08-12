@@ -114,7 +114,7 @@ class Decoder:
             self.lr, self.gcurve = struct.unpack("ff", fd.read(2 * np.dtype(np.float32).itemsize))
 
         # Kernels
-        self.accum_activations_kernel = prog.accum_activations
+        self.activate_kernel = prog.activate
         self.inhibit_activations_kernel = prog.inhibit_activations
         self.update_gates_kernel = prog.update_gates
         self.decoder_learn_kernel = prog.decoder_learn
@@ -157,15 +157,13 @@ class Decoder:
 
             vec_visible_size = np.array(list(vld.size), dtype=np.int32)
 
-            self.accum_activations_kernel(cq, (self.hidden_size[0], self.hidden_size[1], self.hidden_size[2] * self.hidden_size[3]), (1, 1, self.hidden_size[2]),
-                    visible_states[i].data, vl.weights.data, self.activations.data,
+            inhibit = (i == len(self.vls) - 1)
+
+            self.activate_kernel(cq, (self.hidden_size[0], self.hidden_size[1], self.hidden_size[2] * self.hidden_size[3]), (1, 1, self.hidden_size[2]),
+                    visible_states[i].data, vl.weights.data, self.activations.data, self.hidden_states.data,
                     vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
                     np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
-                    np.int32(history_pos), np.float32(1.0))
-
-        self.inhibit_activations_kernel(cq, (self.hidden_size[0], self.hidden_size[1], self.hidden_size[3]), None, self.activations.data, self.hidden_states.data,
-                vec_hidden_size,
-                np.float32(1.0 / len(self.vls)))
+                    np.int32(history_pos), np.float32(1.0 / len(self.vls)), np.uint8(inhibit))
 
         # Copy to prevs
         for i in range(len(self.vls)):

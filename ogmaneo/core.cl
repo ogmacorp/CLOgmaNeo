@@ -8,17 +8,19 @@
 
 // --- Core SPH ---
 
-__kernel void accum_activations(
+__kernel void activate(
     __global const int* visible_states,
     __global const float* weights,
     __global float* activations,
+    __global int* hidden_states,
     int4 visible_size,
     int4 hidden_size,
     int radius,
     int diam,
     float2 h_to_v,
     int history_pos,
-    float importance
+    float importance,
+    uchar inhibit
 ) {
     __local int2 hidden_column_pos;
     __local int hidden_column_index;
@@ -55,7 +57,7 @@ __kernel void accum_activations(
         num_visible_columns = visible_size.x * visible_size.y;
     }
 
-    barrier(CLK_LOCAL_MEM_FENCE);
+    barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 
     int gt = get_global_id(2) / hidden_size.z;
     int gc = get_global_id(2) % hidden_size.z;
@@ -86,36 +88,28 @@ __kernel void accum_activations(
     sum /= count;
 
     activations[hidden_cell_index] += sum * importance;
-}
 
-__kernel void inhibit_activations(
-    __global float* activations,
-    __global int* states,
-    int4 size,
-    float scale
-) {
-    int2 column_pos = (int2)(get_global_id(0), get_global_id(1));
-    int column_index = column_pos.y + size.y * column_pos.x;
+    if (inhibit) {
+        barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 
-    int gt = get_global_id(2);
+        if (get_local_id(2) == 0) {
+            int max_index = 0;
+            float max_activation = -999999.0f;
 
-    int max_index = 0;
-    float max_activation = -999999.0f;
+            for (int c = 0; c < hidden_size.z; c++) {
+                int hidden_cell_index = gt + hidden_size.w * (c + hidden_size.z * hidden_column_index);
 
-    for (int c = 0; c < size.z; c++) {
-        int cell_index = gt + size.w * (c + size.z * column_index);
+                float activation = activations[hidden_cell_index];
 
-        activations[cell_index] *= scale;
+                if (activation > max_activation) {
+                    max_activation = activation;
+                    max_index = c;
+                }
+            }
 
-        float activation = activations[cell_index];
-
-        if (activation > max_activation) {
-            max_activation = activation;
-            max_index = c;
+            hidden_states[hidden_column_index + gt * size.x * size.y] = max_index;
         }
     }
-
-    states[column_index + gt * size.x * size.y] = max_index;
 }
 
 __kernel void update_gates(
@@ -189,7 +183,7 @@ __kernel void encoder_learn(
         num_visible_columns = visible_size.x * visible_size.y;
     }
 
-    barrier(CLK_LOCAL_MEM_FENCE);
+    barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 
     int gt = get_global_id(2) / visible_size.z;
     int gc = get_global_id(2) % visible_size.z;
@@ -231,7 +225,7 @@ __kernel void encoder_learn(
 
     reconstruction[temporal_visible_cell_index] = sum;
 
-    barrier(CLK_LOCAL_MEM_FENCE);
+    barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 
     if (get_local_id(2) == 0) {
         for (int c = 0; c < visible_size.z; c++) {
@@ -316,7 +310,7 @@ __kernel void decoder_learn(
 
     int gslice = (target_pos + gt) % target_temporal_horizon;
 
-    barrier(CLK_LOCAL_MEM_FENCE);
+    barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 
     // Pre-compute for work group
     if (get_local_id(2) == 0) {
@@ -341,7 +335,7 @@ __kernel void decoder_learn(
         hidden_state = hidden_states[hidden_state_index];
     }
 
-    barrier(CLK_LOCAL_MEM_FENCE);
+    barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 
     if (gc == hidden_state) {
         int hidden_cell_index_max = gt + hidden_size.w * (hidden_state + hidden_size.z * hidden_column_index);
@@ -367,7 +361,7 @@ __kernel void decoder_learn(
         }
     }
 
-    barrier(CLK_LOCAL_MEM_FENCE);
+    barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 
     int hidden_cell_index = gt + hidden_size.w * (gc + hidden_size.z * hidden_column_index);
 
