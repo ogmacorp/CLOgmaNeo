@@ -116,8 +116,11 @@ class Decoder:
             self.lr, self.gcurve = struct.unpack("ff", fd.read(2 * np.dtype(np.float32).itemsize))
 
         # Kernels
-        self.decoder_activate_kernel = prog.decoder_activate
-        self.update_gates_kernel = prog.update_gates
+        self.decoder_activate_kernel = prog.decoder_activate.clone()
+        self.update_gates_kernel = prog.update_gates.clone()
+
+        self.decoder_activate_cache = KernelArgCache(self.decoder_activate_kernel)
+        self.update_gates_cache = KernelArgCache(self.update_gates_kernel)
 
     def step(self, cq: cl.CommandQueue, visible_states: [ cl.array.Array ], target_hidden_states: cl.array.Array, history_pos: int, target_pos: int, target_temporal_horizon: int, learn_enabled: bool = True):
         assert(len(visible_states) == len(self.vls))
@@ -133,10 +136,11 @@ class Decoder:
 
                 vec_visible_size = np.array(list(vld.size), dtype=np.int32)
 
-                self.update_gates_kernel(cq, (vld.size[0], vld.size[1], vld.size[3]), None,
-                        visible_states[i].data, vl.visible_usages.data, vl.visible_gates.data,
+                self.update_gates_cache.set_args(visible_states[i].data, vl.visible_usages.data, vl.visible_gates.data,
                         vec_visible_size,
                         np.float32(self.gcurve))
+
+                cl.enqueue_nd_range_kernel(cq, self.update_gates_kernel, (vld.size[0], vld.size[1], vld.size[3]), None)
 
         # Clear
         self.activations_prev[:] = self.activations[:]
@@ -155,11 +159,12 @@ class Decoder:
             inhibit = (i == len(self.vls) - 1)
             lr = float(inhibit and learn_enabled) * self.lr
 
-            self.decoder_activate_kernel(cq, (self.hidden_size[0], self.hidden_size[1], self.hidden_size[2] * self.hidden_size[3]), (1, 1, self.hidden_size[2] * self.hidden_size[3]),
-                    visible_states[i].data, vl.visible_states_prev.data, vl.visible_gates.data, target_hidden_states.data, self.activations_prev.data, vl.weights.data, self.activations.data, self.hidden_states.data,
+            self.decoder_activate_cache.set_args(visible_states[i].data, vl.visible_states_prev.data, vl.visible_gates.data, target_hidden_states.data, self.activations_prev.data, vl.weights.data, self.activations.data, self.hidden_states.data,
                     vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
                     np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
                     np.int32(history_pos), np.int32(target_pos), np.int32(target_temporal_horizon), np.float32(1.0 / len(self.vls)), np.uint8(inhibit), np.float32(lr))
+
+            cl.enqueue_nd_range_kernel(cq, self.decoder_activate_kernel, (self.hidden_size[0], self.hidden_size[1], self.hidden_size[2] * self.hidden_size[3]), (1, 1, self.hidden_size[2] * self.hidden_size[3]))
 
         # Copy to prevs
         for i in range(len(self.vls)):

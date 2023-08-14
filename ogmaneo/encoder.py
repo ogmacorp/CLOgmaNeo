@@ -110,8 +110,11 @@ class Encoder:
             self.lr, self.gcurve = struct.unpack("ff", fd.read(2 * np.dtype(np.float32).itemsize))
 
         # Kernels
-        self.encoder_activate_kernel = prog.encoder_activate
-        self.encoder_learn_kernel = prog.encoder_learn
+        self.encoder_activate_kernel = prog.encoder_activate.clone()
+        self.encoder_learn_kernel = prog.encoder_learn.clone()
+
+        self.encoder_activate_cache = KernelArgCache(self.encoder_activate_kernel)
+        self.encoder_learn_cache = KernelArgCache(self.encoder_learn_kernel)
 
     def step(self, cq: cl.CommandQueue, visible_states: [ cl.array.Array ], history_pos: int, learn_enabled: bool = True):
         assert(len(visible_states) == len(self.vls))
@@ -133,11 +136,12 @@ class Encoder:
             
             inhibit = (i == len(self.vls) - 1)
 
-            self.encoder_activate_kernel(cq, self.hidden_size, (1, 1, self.hidden_size[2]),
-                    visible_states[i].data, vl.weights.data, self.activations.data, self.hidden_states.data, self.hidden_usages.data, self.hidden_gates.data,
+            self.encoder_activate_cache.set_args(visible_states[i].data, vl.weights.data, self.activations.data, self.hidden_states.data, self.hidden_usages.data, self.hidden_gates.data,
                     vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
                     np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
                     np.int32(history_pos), np.float32(vld.importance / len(self.vls)), np.uint8(inhibit), np.uint8(learn_enabled), np.float32(self.gcurve))
+
+            cl.enqueue_nd_range_kernel(cq, self.encoder_activate_kernel, self.hidden_size, (1, 1, self.hidden_size[2]))
 
         if learn_enabled:
             for i in range(len(self.vls)):
@@ -148,8 +152,7 @@ class Encoder:
 
                 vec_visible_size = np.array(list(vld.size), dtype=np.int32)
 
-                self.encoder_learn_kernel(cq, (vld.size[0], vld.size[1], vld.size[2] * vld.size[3]), (1, 1, vld.size[2] * vld.size[3]),
-                        visible_states[i].data, self.hidden_states.data, self.hidden_gates.data, vl.weights.data, vl.reconstruction.data,
+                self.encoder_learn_cache.set_args(visible_states[i].data, self.hidden_states.data, self.hidden_gates.data, vl.weights.data, vl.reconstruction.data,
                         vec_visible_size, vec_hidden_size, np.int32(vld.radius),
                         np.array([ math.ceil(diam * self.hidden_size[0] / vld.size[0] * 0.5), math.ceil(diam * self.hidden_size[1] / vld.size[1] * 0.5) ], np.int32),
                         np.int32(diam),
@@ -157,6 +160,8 @@ class Encoder:
                         np.array([ self.hidden_size[0] / vld.size[0], self.hidden_size[1] / vld.size[1] ], dtype=np.float32),
                         np.int32(history_pos),
                         np.float32(self.lr))
+
+                cl.enqueue_nd_range_kernel(cq, self.encoder_learn_kernel, (vld.size[0], vld.size[1], vld.size[2] * vld.size[3]), (1, 1, vld.size[2] * vld.size[3]))
 
     def write(self, fd: io.IOBase):
         fd.write(struct.pack("iii", *self.hidden_size))

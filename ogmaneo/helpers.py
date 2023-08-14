@@ -23,3 +23,40 @@ def write_array(fd: io.IOBase, arr: np.array):
     
 def write_from_buffer(fd: io.IOBase, buffer: cl.array.Array):
     write_array(fd, buffer.get())
+
+class KernelArgCache:
+    def __init__(self, kernel: cl.Kernel):
+        self.kernel = kernel
+
+        self.num_args = kernel.get_info(cl.kernel_info.NUM_ARGS)
+
+        self.args_prev = self.num_args * [ None ]
+        self.args = self.num_args * [ None ]
+
+    def set_args(self, *args):
+        assert len(args) == self.num_args
+
+        self.args = list(args).copy()
+
+        self.update_args()
+
+    def update_args(self):
+        for i in range(self.num_args):
+            arg_set = False
+
+            if self.args_prev[i] is None:
+                arg_set = True
+            elif isinstance(self.args[i], cl.MemoryObject):
+                if self.args[i] is not self.args_prev[i]:
+                    arg_set = True
+            elif isinstance(self.args[i], np.ndarray):
+                if (self.args[i] == self.args_prev[i]).all():
+                    arg_set = True
+            else:
+                if self.args[i] != self.args_prev[i]:
+                    arg_set = True
+
+            if arg_set:
+                self.kernel.set_arg(i, self.args[i])
+
+        self.args_prev = self.args.copy()
