@@ -46,17 +46,20 @@ class KernelArgCache:
 
             if self.args_prev[i] is None:
                 arg_set = True
+                self.args_prev[i] = self.args[i]
             elif isinstance(self.args[i], cl.MemoryObject):
                 if self.args[i] is not self.args_prev[i]:
                     arg_set = True
+                    self.args_prev[i] = self.args[i]
             elif isinstance(self.args[i], np.ndarray):
-                if (self.args[i] == self.args_prev[i]).all():
+                if not (self.args[i] == self.args_prev[i]).all():
                     arg_set = True
+                    self.args_prev[i] = self.args[i]
             else:
                 if self.args[i] != self.args_prev[i]:
                     arg_set = True
+                    self.args_prev[i] = self.args[i]
 
             if arg_set:
                 self.kernel.set_arg(i, self.args[i])
 
-        self.args_prev = self.args.copy()
