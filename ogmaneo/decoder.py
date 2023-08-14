@@ -143,7 +143,7 @@ class Decoder:
                 cl.enqueue_nd_range_kernel(cq, self.update_gates_kernel, (vld.size[0], vld.size[1], vld.size[3]), None)
 
         # Clear
-        self.activations_prev[:] = self.activations[:]
+        cl.enqueue_copy(cq, self.activations_prev.data, self.activations.data)
 
         self.activations.fill(np.float32(0))
 
@@ -171,7 +171,7 @@ class Decoder:
             vld = self.vlds[i]
             vl = self.vls[i]
 
-            vl.visible_states_prev[:] = visible_states[i][:]
+            cl.enqueue_copy(cq, vl.visible_states_prev.data, visible_states[i].data)
 
     def write(self, fd: io.IOBase):
         fd.write(struct.pack("iiii", *self.hidden_size))
