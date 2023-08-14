@@ -181,8 +181,18 @@ class Hierarchy:
             self.history_pos = read_array(fd, num_layers, np.int32).tolist()
             self.updates = list(map(bool, read_array(fd, num_layers, np.uint8).tolist()))
 
-        self.assign_slice_kernel = prog.assign_slice
-        self.stack_slices_kernel = prog.stack_slices
+        self.assign_slice_kernels = []
+        self.assign_slice_caches = []
+
+        self.stack_slices_kernels = []
+        self.stack_slices_caches = []
+
+        for i in range(len(self.lds)):
+            self.assign_slice_kernels.append(prog.assign_slice.clone())
+            self.stack_slices_kernels.append(prog.stack_slices.clone())
+
+            self.assign_slice_caches.append(KernelArgCache(self.assign_slice_kernels[-1]))
+            self.stack_slices_caches.append(KernelArgCache(self.stack_slices_kernels[-1]))
 
     def step(self, cq: cl.CommandQueue, input_states: [ cl.array.Array ], learn_enabled: bool = True):
         # Push front
@@ -195,7 +205,9 @@ class Hierarchy:
         for i in range(len(self.io_descs)):
             num_visible_columns = self.io_descs[i].size[0] * self.io_descs[i].size[1]
 
-            self.assign_slice_kernel(cq, (num_visible_columns,), None, input_states[i].data, self.histories[0][i].data, np.int32(num_visible_columns * self.history_pos[0]))
+            self.assign_slice_caches[0].set_args(input_states[i].data, self.histories[0][i].data, np.int32(num_visible_columns * self.history_pos[0]))
+
+            cl.enqueue_nd_range_kernel(cq, self.assign_slice_kernels[0], (num_visible_columns,), None)
 
         # Up-pass
         for i in range(len(self.encoders)):
@@ -222,7 +234,9 @@ class Hierarchy:
 
                     num_visible_columns = self.lds[i].hidden_size[0] * self.lds[i].hidden_size[1]
 
-                    self.assign_slice_kernel(cq, (num_visible_columns,), None, self.encoders[i].hidden_states.data, self.histories[i_next][0].data, np.int32(num_visible_columns * self.history_pos[i_next]))
+                    self.assign_slice_caches[i_next].set_args(self.encoders[i].hidden_states.data, self.histories[i_next][0].data, np.int32(num_visible_columns * self.history_pos[i_next]))
+
+                    cl.enqueue_nd_range_kernel(cq, self.assign_slice_kernels[i_next], (num_visible_columns,), None)
 
                     self.ticks[i_next] += 1
 
@@ -236,7 +250,9 @@ class Hierarchy:
                     num_hidden_columns = self.lds[i].hidden_size[0] * self.lds[i].hidden_size[1]
                     destride_index = self.ticks_per_update[i + 1] - 1 - self.ticks[i + 1]
 
-                    self.stack_slices_kernel(cq, (num_hidden_columns,), None, self.encoders[i].hidden_states.data, self.decoders[i + 1][0].hidden_states.data, self.complete_states[i].data, np.int32(num_hidden_columns), np.int32(num_hidden_columns * destride_index))
+                    self.stack_slices_caches[i].set_args(self.encoders[i].hidden_states.data, self.decoders[i + 1][0].hidden_states.data, self.complete_states[i].data, np.int32(num_hidden_columns), np.int32(num_hidden_columns * destride_index))
+
+                    cl.enqueue_nd_range_kernel(cq, self.stack_slices_kernels[i], (num_hidden_columns,), None)
 
                     decoder_visible_states = [ self.complete_states[i] ]
                 else:
