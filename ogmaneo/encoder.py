@@ -98,7 +98,7 @@ class Encoder:
                 self.vls.append(vl)
 
             # Parameters
-            self.lr = struct.unpack("f", fd.read(np.dtype(np.float32).itemsize))
+            self.lr = struct.unpack("f", fd.read(np.dtype(np.float32).itemsize))[0]
 
         # Kernels
         self.encoder_activate_kernel = prog.encoder_activate.clone()
@@ -125,7 +125,7 @@ class Encoder:
 
             vec_visible_size = np.array(list(vld.size), dtype=np.int32)
             
-            inhibit = (i == len(self.vls) - 1)
+            inhibit = bool(i == len(self.vls) - 1)
 
             self.encoder_activate_cache.set_args(visible_states[i].data, vl.weights.data, self.activations.data, self.hidden_states.data,
                     vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),

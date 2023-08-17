@@ -101,7 +101,7 @@ class Decoder:
                 self.vls.append(vl)
 
             # Parameters
-            self.lr = struct.unpack("f", fd.read(np.dtype(np.float32).itemsize))
+            self.lr = struct.unpack("f", fd.read(np.dtype(np.float32).itemsize))[0]
 
         # Kernels
         self.decoder_activate_kernel = prog.decoder_activate.clone()
@@ -127,7 +127,7 @@ class Decoder:
 
             vec_visible_size = np.array(list(vld.size), dtype=np.int32)
 
-            inhibit = (i == len(self.vls) - 1)
+            inhibit = bool(i == len(self.vls) - 1)
             lr = float(inhibit and learn_enabled) * self.lr
 
             self.decoder_activate_cache.set_args(visible_states[i].data, vl.visible_states_prev.data, target_hidden_states.data, self.activations_prev.data, vl.weights.data, self.activations.data, self.hidden_states.data,
