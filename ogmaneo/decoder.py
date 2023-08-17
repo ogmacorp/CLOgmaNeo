@@ -25,8 +25,6 @@ class Decoder:
     class VisibleLayer:
         weights: cl.array.Array
         visible_states_prev: cl.array.Array
-        visible_usages: cl.array.Array
-        visible_gates: cl.array.Array
 
     def __init__(self, cq: cl.CommandQueue, prog: cl.Program, hidden_size: (int, int, int, int) = (4, 4, 16, 1), vlds: [ VisibleLayerDesc ] = [], fd: io.IOBase = None):
         if fd is None:
@@ -56,14 +54,10 @@ class Decoder:
                 vl.weights = cl.clrandom.rand(cq, (num_weights,), np.float32, a=-0.01, b=0.01)
                 vl.visible_states_prev = cl.array.zeros(cq, (num_visible_columns * vld.size[3],), np.int32)
 
-                vl.visible_usages = cl.array.zeros(cq, (num_visible_cells * vld.size[3],), np.int32)
-                vl.visible_gates = cl.array.zeros(cq, (num_visible_columns * vld.size[3],), np.float32)
-
                 self.vls.append(vl)
 
             # Parameters
             self.lr = 2.0
-            self.gcurve = 0.001
 
         else: # Load from h5py group
             self.hidden_size = struct.unpack("iiii", fd.read(4 * np.dtype(np.int32).itemsize))
@@ -103,44 +97,21 @@ class Decoder:
                 read_into_buffer(fd, vl.weights)
                 read_into_buffer(fd, vl.visible_states_prev)
 
-                vl.visible_usages = cl.array.zeros(cq, (num_visible_cells * vld.size[3],), np.int32)
-
-                read_into_buffer(fd, vl.visible_usages)
-
-                vl.visible_gates = cl.array.zeros(cq, (num_visible_columns * vld.size[3],), np.float32)
-
                 self.vlds.append(vld)
                 self.vls.append(vl)
 
             # Parameters
-            self.lr, self.gcurve = struct.unpack("ff", fd.read(2 * np.dtype(np.float32).itemsize))
+            self.lr = struct.unpack("f", fd.read(np.dtype(np.float32).itemsize))
 
         # Kernels
         self.decoder_activate_kernel = prog.decoder_activate.clone()
-        self.update_gates_kernel = prog.update_gates.clone()
 
         self.decoder_activate_cache = KernelArgCache(self.decoder_activate_kernel)
-        self.update_gates_cache = KernelArgCache(self.update_gates_kernel)
 
     def step(self, cq: cl.CommandQueue, visible_states: [ cl.array.Array ], target_hidden_states: cl.array.Array, history_pos: int, target_pos: int, target_temporal_horizon: int, learn_enabled: bool = True):
         assert(len(visible_states) == len(self.vls))
 
         vec_hidden_size = np.array(list(self.hidden_size), dtype=np.int32)
-
-        if learn_enabled:
-            for i in range(len(self.vls)):
-                vld = self.vlds[i]
-                vl = self.vls[i]
-
-                diam = vld.radius * 2 + 1
-
-                vec_visible_size = np.array(list(vld.size), dtype=np.int32)
-
-                self.update_gates_cache.set_args(visible_states[i].data, vl.visible_usages.data, vl.visible_gates.data,
-                        vec_visible_size,
-                        np.float32(self.gcurve))
-
-                cl.enqueue_nd_range_kernel(cq, self.update_gates_kernel, (vld.size[0], vld.size[1], vld.size[3]), None)
 
         # Clear
         cl.enqueue_copy(cq, self.activations_prev.data, self.activations.data)
@@ -159,7 +130,7 @@ class Decoder:
             inhibit = (i == len(self.vls) - 1)
             lr = float(inhibit and learn_enabled) * self.lr
 
-            self.decoder_activate_cache.set_args(visible_states[i].data, vl.visible_states_prev.data, vl.visible_gates.data, target_hidden_states.data, self.activations_prev.data, vl.weights.data, self.activations.data, self.hidden_states.data,
+            self.decoder_activate_cache.set_args(visible_states[i].data, vl.visible_states_prev.data, target_hidden_states.data, self.activations_prev.data, vl.weights.data, self.activations.data, self.hidden_states.data,
                     vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
                     np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
                     np.int32(history_pos), np.int32(target_pos), np.int32(target_temporal_horizon), np.float32(1.0 / len(self.vls)), np.uint8(inhibit), np.float32(lr))
@@ -190,6 +161,4 @@ class Decoder:
             write_from_buffer(fd, vl.weights)
             write_from_buffer(fd, vl.visible_states_prev)
 
-            write_from_buffer(fd, vl.visible_usages)
-
-        fd.write(struct.pack("ff", self.lr, self.gcurve))
+        fd.write(struct.pack("f", self.lr))

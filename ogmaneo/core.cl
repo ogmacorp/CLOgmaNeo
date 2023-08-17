@@ -34,7 +34,6 @@ __kernel void stack_slices(
 __kernel void decoder_activate(
     __global const int* visible_states,
     __global const int* visible_states_prev,
-    __global const float* visible_gates,
     __global const int* target_hidden_states,
     __global const float* activations_prev,
     __global float* weights,
@@ -120,7 +119,7 @@ __kernel void decoder_activate(
 
                     int wi = gc + hidden_size.z * (gt + hidden_size.w * (t + visible_size.w * (visible_state_prev + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_column_index)))));
 
-                    weights[wi] += delta * visible_gates[t + visible_size.w * visible_column_index];
+                    weights[wi] += delta;
                 }
         }
     }
@@ -194,8 +193,6 @@ __kernel void encoder_activate(
     __global const float* weights,
     __global float* activations,
     __global int* hidden_states,
-    __global int* hidden_usages,
-    __global float* hidden_gates,
     int4 visible_size,
     int4 hidden_size,
     int radius,
@@ -203,9 +200,7 @@ __kernel void encoder_activate(
     float2 h_to_v,
     int history_pos,
     float importance,
-    uchar inhibit,
-    uchar gate_update,
-    float gcurve
+    uchar inhibit
 ) {
     __local int2 hidden_column_pos;
     __local int hidden_column_index;
@@ -290,43 +285,13 @@ __kernel void encoder_activate(
             }
 
             hidden_states[hidden_column_index] = max_index;
-
-            if (gate_update) {
-                int hidden_cell_index_max = max_index + hidden_size.z * hidden_column_index;
-
-                hidden_gates[hidden_column_index] = exp(-hidden_usages[hidden_cell_index_max] * gcurve);
-                hidden_usages[hidden_cell_index_max] = min(999999, hidden_usages[hidden_cell_index_max] + 1);
-            }
         }
     }
-}
-
-__kernel void update_gates(
-    __global const int* states,
-    __global int* usages,
-    __global float* gates,
-    int4 size,
-    float gcurve
-) {
-    int2 column_pos = (int2)(get_global_id(0), get_global_id(1));
-    int column_index = column_pos.y + size.y * column_pos.x;
-
-    int gt = get_global_id(2);
-
-    int state = states[column_index + gt * size.x * size.y];
-
-    int temporal_column_index = gt + size.w * column_index;
-
-    int cell_index = state + size.z * temporal_column_index;
-
-    gates[temporal_column_index] = exp(-usages[cell_index] * gcurve);
-    usages[cell_index] = min(999999, usages[cell_index] + 1);
 }
 
 __kernel void encoder_learn(
     __global const int* visible_states,
     __global const int* hidden_states,
-    __global const float* hidden_gates,
     __global float* weights,
     __global float* reconstruction,
     int4 visible_size,
@@ -433,7 +398,7 @@ __kernel void encoder_learn(
 
                 int wi = hidden_state + hidden_size.z * (gt + visible_size.w * (gc + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_column_index))));
 
-                weights[wi] += delta * hidden_gates[hidden_column_index];
+                weights[wi] += delta;
             }
         }
 }
