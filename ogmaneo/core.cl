@@ -98,7 +98,9 @@ __kernel void decoder_activate(
 
     int target_state = target_hidden_states[hidden_column_index + num_hidden_columns * gslice];
 
-    int hidden_cell_index = gc + hidden_size.z * (gt + hidden_size.w * hidden_column_index);
+    int hidden_cells_start = hidden_size.z * (gt + hidden_size.w * hidden_column_index);
+
+    int hidden_cell_index = gc + hidden_cells_start;
 
     if (lr != 0.0f) {
         float delta = lr * ((gc == target_state) - activations_prev[hidden_cell_index]);
@@ -154,8 +156,6 @@ __kernel void decoder_activate(
         if (gc == 0) {
             int max_index = 0;
             float max_activation = -999999.0f;
-
-            int hidden_cells_start = hidden_size.z * (gt + hidden_size.w * hidden_column_index);
 
             for (int c = 0; c < hidden_size.z; c++) {
                 float activation = activations[c + hidden_cells_start];
