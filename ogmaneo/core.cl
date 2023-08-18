@@ -107,6 +107,7 @@ __kernel void decoder_activate(
 
         for (int t = 0; t < visible_size.w; t++) {
             int slice = (history_pos_prev + t) % visible_size.w;
+            int visible_columns_start = num_visible_columns * slice;
 
             for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
                 for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
@@ -116,7 +117,7 @@ __kernel void decoder_activate(
 
                     int2 offset = visible_column_pos - field_lower_bound;
 
-                    int visible_state_prev = visible_states_prev[visible_column_index + num_visible_columns * slice];
+                    int visible_state_prev = visible_states_prev[visible_column_index + visible_columns_start];
 
                     int wi = gc + hidden_size.z * (gt + hidden_size.w * (visible_state_prev + visible_size.z * (t + visible_size.w * (offset.y + diam * (offset.x + diam * hidden_column_index)))));
 
@@ -129,6 +130,7 @@ __kernel void decoder_activate(
 
     for (int t = 0; t < visible_size.w; t++) {
         int slice = (history_pos + t) % visible_size.w;
+        int visible_columns_start = num_visible_columns * slice;
 
         for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
             for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
@@ -138,7 +140,7 @@ __kernel void decoder_activate(
 
                 int2 offset = visible_column_pos - field_lower_bound;
 
-                int visible_state = visible_states[visible_column_index + num_visible_columns * slice];
+                int visible_state = visible_states[visible_column_index + visible_columns_start];
 
                 int wi = gc + hidden_size.z * (gt + hidden_size.w * (visible_state + visible_size.z * (t + visible_size.w * (offset.y + diam * (offset.x + diam * hidden_column_index)))));
 
@@ -249,6 +251,7 @@ __kernel void encoder_activate(
 
     for (int t = 0; t < visible_size.w; t++) {
         int slice = (history_pos + t) % visible_size.w;
+        int visible_columns_start = num_visible_columns * slice;
 
         for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
             for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
@@ -258,7 +261,7 @@ __kernel void encoder_activate(
 
                 int2 offset = visible_column_pos - field_lower_bound;
 
-                int visible_state = visible_states[visible_column_index + num_visible_columns * slice];
+                int visible_state = visible_states[visible_column_index + visible_columns_start];
 
                 int wi = gc + hidden_size.z * (visible_state + visible_size.z * (t + visible_size.w * (offset.y + diam * (offset.x + diam * hidden_column_index))));
 
@@ -299,7 +302,7 @@ __kernel void encoder_learn(
     __global float* weights,
     __global float* reconstruction,
     int4 visible_size,
-    int3 hidden_size,
+    int4 hidden_size,
     int radius,
     int2 reverse_radii,
     int diam,
