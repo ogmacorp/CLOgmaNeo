@@ -70,11 +70,10 @@ __kernel void image_enc_activate(
 
             int2 offset = visible_column_pos - field_lower_bound;
 
-            int wi_start = visible_size.z * (offset.y + diam * (offset.x + diam * hidden_cell_index));
             int visible_states_start = visible_size.z * visible_column_index;
 
             for (int c = 0; c < visible_size.z; c++) {
-                int wi = c + wi_start;
+                int wi = gc + hidden_size.z * (c + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_column_index)));
 
                 float w = protos[wi];
 
@@ -138,11 +137,10 @@ __kernel void image_enc_activate(
 
                     int2 offset = visible_column_pos - field_lower_bound;
 
-                    int wi_start = visible_size.z * (offset.y + diam * (offset.x + diam * hidden_cell_index));
                     int visible_states_start = visible_size.z * visible_column_index;
 
                     for (int c = 0; c < visible_size.z; c++) {
-                        int wi = c + wi_start;
+                        int wi = gc + hidden_size.z * (c + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_column_index)));
 
                         protos[wi] += strength * (visible_states[c + visible_states_start] - protos[wi]);
                     }
