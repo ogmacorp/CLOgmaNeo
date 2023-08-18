@@ -111,9 +111,9 @@ class ImageEnc:
             self.lr, self.rr, self.falloff = struct.unpack("fff", fd.read(3 * np.dtype(np.float32).itemsize))
 
         # Kernels
-        self.image_enc_activate_kernel = prog_extra.image_enc_activate
-        self.image_enc_learn_weights_kernel = prog_extra.image_enc_learn_weights
-        self.image_enc_reconstruct_kernel = prog_extra.image_enc_reconstruct
+        self.image_enc_activate_kernel = prog_extra.image_enc_activate.clone()
+        self.image_enc_learn_weights_kernel = prog_extra.image_enc_learn_weights.clone()
+        self.image_enc_reconstruct_kernel = prog_extra.image_enc_reconstruct.clone()
         
         self.image_enc_activate_cache = KernelArgCache(self.image_enc_activate_kernel)
         self.image_enc_learn_weights_cache = KernelArgCache(self.image_enc_learn_weights_kernel)

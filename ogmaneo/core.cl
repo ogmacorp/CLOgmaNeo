@@ -165,7 +165,7 @@ __kernel void decoder_activate(
                 }
             }
 
-            hidden_states[hidden_column_index + gt * hidden_size.x * hidden_size.y] = max_index;
+            hidden_states[hidden_column_index + gt * num_hidden_columns] = max_index;
 
             float total_activation = 0.0f;
 
