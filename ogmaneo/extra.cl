@@ -156,7 +156,6 @@ __kernel void image_enc_activate(
 __kernel void image_enc_learn_weights(
     __global const float* visible_states,
     __global const int* hidden_states,
-    __global const float* reconstruction,
     __global float* weights,
     int3 visible_size,
     int3 hidden_size,
@@ -200,7 +199,36 @@ __kernel void image_enc_learn_weights(
 
     int visible_cell_index = gc + visible_size.z * visible_column_index;
 
-    float delta = rr * (visible_states[visible_cell_index] - reconstruction[visible_cell_index]);
+    float sum = 0.0f;
+    int count = 0;
+
+    for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
+        for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
+            int2 hidden_column_pos = (int2)(ix, iy);
+
+            int hidden_column_index = iy + hidden_size.y * ix;
+
+            int hidden_cell_index = hidden_states[hidden_column_index] + hidden_size.z * hidden_column_index;
+
+            // Project
+            int2 visible_center = (int2)((hidden_column_pos.x + 0.5f) * h_to_v.x, (hidden_column_pos.y + 0.5f) * h_to_v.y);
+
+            // Bounds check
+            if (visible_column_pos.x >= visible_center.x - radius && visible_column_pos.x <= visible_center.x + radius &&
+                visible_column_pos.y >= visible_center.y - radius && visible_column_pos.y <= visible_center.y + radius)
+            {
+                int2 offset = (int2)(visible_column_pos.x - visible_center.x + radius, visible_column_pos.y - visible_center.y + radius);
+
+                int wi = gc + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_cell_index));
+
+                sum += weights[wi];
+                count++;
+            }
+        }
+
+    sum /= max(1, count);
+
+    float delta = rr * (visible_states[visible_cell_index] - sum);
 
     for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
         for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {

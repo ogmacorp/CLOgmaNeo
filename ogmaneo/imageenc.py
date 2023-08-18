@@ -149,8 +149,6 @@ class ImageEnc:
             cl.enqueue_nd_range_kernel(cq, self.image_enc_activate_kernel, self.hidden_size, (1, 1, self.hidden_size[2]))
 
         if learn_enabled and learn_recon:
-            self.reconstruct(cq, self.hidden_states)
-
             for i in range(len(self.vls)):
                 vld = self.vlds[i]
                 vl = self.vls[i]
@@ -161,7 +159,7 @@ class ImageEnc:
                 vec_visible_size = np.array(list(vld.size) + [ 1 ], dtype=np.int32)
 
                 self.image_enc_learn_weights_cache.set_args(
-                        visible_states[i].data, self.hidden_states.data, vl.reconstruction.data, vl.weights.data, 
+                        visible_states[i].data, self.hidden_states.data, vl.weights.data, 
                         vec_visible_size, vec_hidden_size, np.int32(vld.radius),
                         np.array([ math.ceil(diam * self.hidden_size[0] / vld.size[0] * 0.5), math.ceil(diam * self.hidden_size[1] / vld.size[1] * 0.5) ], np.int32),
                         np.int32(diam),
