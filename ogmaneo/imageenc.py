@@ -120,7 +120,7 @@ class ImageEnc:
         self.image_enc_reconstruct_cache = KernelArgCache(self.image_enc_reconstruct_kernel)
 
     def step(self, cq: cl.CommandQueue, visible_states: [ cl.array.Array ], learn_enabled: bool = True, learn_recon: bool = True):
-        assert(len(visible_states) == len(self.vls))
+        assert len(visible_states) == len(self.vls)
 
         # Pad 3-vecs to 4-vecs
         vec_hidden_size = np.array(list(self.hidden_size) + [ 1 ], dtype=np.int32)

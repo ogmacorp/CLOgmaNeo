@@ -109,7 +109,7 @@ class Decoder:
         self.decoder_activate_cache = KernelArgCache(self.decoder_activate_kernel)
 
     def step(self, cq: cl.CommandQueue, visible_states: [ cl.array.Array ], target_hidden_states: cl.array.Array, history_pos: int, history_pos_prev: int, target_pos: int, target_temporal_horizon: int, learn_enabled: bool = True):
-        assert(len(visible_states) == len(self.vls))
+        assert len(visible_states) == len(self.vls)
 
         vec_hidden_size = np.array(list(self.hidden_size), dtype=np.int32)
 

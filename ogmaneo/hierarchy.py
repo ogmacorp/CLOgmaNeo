@@ -268,17 +268,17 @@ class Hierarchy:
                     self.decoders[i][0].step(cq, decoder_visible_states, self.histories[i][0], 0, 0, self.history_pos[i], self.lds[i].temporal_horizon, learn_enabled)
 
     def get_predicted_states(self, i: int) -> cl.array.Array:
-        assert(self.decoders[0][i] is not None)
+        assert self.decoders[0][i] is not None
 
         return self.decoders[0][i].hidden_states
 
     def get_predicted_activations(self, i: int) -> cl.array.Array:
-        assert(self.decoders[0][i] is not None)
+        assert self.decoders[0][i] is not None
 
         return self.decoders[0][i].activations
 
     def sample_prediction(self, i: int, temperature: float = 1.0) -> np.array:
-        assert(self.decoders[0][i] is not None)
+        assert self.decoders[0][i] is not None
 
         if temperature == 0.0:
             return get_predicted_states(i).get()

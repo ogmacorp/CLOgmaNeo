@@ -108,7 +108,7 @@ class Encoder:
         self.encoder_learn_cache = KernelArgCache(self.encoder_learn_kernel)
 
     def step(self, cq: cl.CommandQueue, visible_states: [ cl.array.Array ], history_pos: int, learn_enabled: bool = True):
-        assert(len(visible_states) == len(self.vls))
+        assert len(visible_states) == len(self.vls)
 
         # Pad 3-vecs to 4-vecs
         vec_hidden_size = np.array(list(self.hidden_size) + [ 1 ], dtype=np.int32)
