@@ -218,12 +218,10 @@ class Hierarchy:
 
                 self.updates[i] = True
 
-                encoder_visible_states = self.histories[i]
-
-                self.encoders[i].step(cq, encoder_visible_states, self.history_pos[i], learn_enabled)
+                self.encoders[i].step(cq, self.histories[i], self.history_pos[i], learn_enabled)
 
                 # If there is a higher layer
-                if i < len(self.encoders) - 1:
+                if i < len(self.lds) - 1:
                     i_next = i + 1
 
                     # Push front
@@ -247,10 +245,12 @@ class Hierarchy:
                 decoder_visible_states = []
 
                 if i < len(self.lds) - 1:
-                    num_hidden_columns = self.lds[i].hidden_size[0] * self.lds[i].hidden_size[1]
-                    destride_index = self.ticks_per_update[i + 1] - 1 - self.ticks[i + 1]
+                    i_next = i + 1
 
-                    self.stack_slices_caches[i].set_args(self.encoders[i].hidden_states.data, self.decoders[i + 1][0].hidden_states.data, self.complete_states[i].data, np.int32(num_hidden_columns), np.int32(num_hidden_columns * destride_index))
+                    num_hidden_columns = self.lds[i].hidden_size[0] * self.lds[i].hidden_size[1]
+                    destride_index = self.ticks_per_update[i_next] - 1 - self.ticks[i_next]
+
+                    self.stack_slices_caches[i].set_args(self.encoders[i].hidden_states.data, self.decoders[i_next][0].hidden_states.data, self.complete_states[i].data, np.int32(num_hidden_columns), np.int32(num_hidden_columns * destride_index))
 
                     cl.enqueue_nd_range_kernel(cq, self.stack_slices_kernels[i], (num_hidden_columns,), None)
 

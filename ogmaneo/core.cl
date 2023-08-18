@@ -184,11 +184,8 @@ __kernel void decoder_activate(
 
             float total_inv = 1.0f / max(0.0001f, total_activation);
 
-            for (int c = 0; c < hidden_size.z; c++) {
-                int hidden_cell_index_scan = c + hidden_cells_start;
-
-                activations[hidden_cell_index_scan] *= total_inv;
-            }
+            for (int c = 0; c < hidden_size.z; c++)
+                activations[c + hidden_cells_start] *= total_inv;
         }
     }
 }
