@@ -95,11 +95,9 @@ __kernel void decoder_activate(
 
     int gslice = (target_pos + gt) % target_temporal_horizon;
 
-    int hidden_state_index = hidden_column_index + num_hidden_columns * gslice;
+    int target_state = target_hidden_states[hidden_column_index + num_hidden_columns * gslice];
 
-    int target_state = target_hidden_states[hidden_state_index];
-
-    int hidden_cell_index = gt + hidden_size.w * (gc + hidden_size.z * hidden_column_index);
+    int hidden_cell_index = gc + hidden_size.z * (gt + hidden_size.w * hidden_column_index);
 
     if (lr != 0.0f) {
         float delta = lr * ((gc == target_state) - activations_prev[hidden_cell_index]);
@@ -117,7 +115,7 @@ __kernel void decoder_activate(
 
                     int visible_state_prev = visible_states_prev[visible_column_index + num_visible_columns * slice];
 
-                    int wi = gc + hidden_size.z * (gt + hidden_size.w * (t + visible_size.w * (visible_state_prev + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_column_index)))));
+                    int wi = gc + hidden_size.z * (gt + hidden_size.w * (visible_state_prev + visible_size.z * (t + visible_size.w * (offset.y + diam * (offset.x + diam * hidden_column_index)))));
 
                     weights[wi] += delta;
                 }
@@ -139,7 +137,7 @@ __kernel void decoder_activate(
 
                 int visible_state = visible_states[visible_column_index + num_visible_columns * slice];
 
-                int wi = gc + hidden_size.z * (gt + hidden_size.w * (t + visible_size.w * (visible_state + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_column_index)))));
+                int wi = gc + hidden_size.z * (gt + hidden_size.w * (visible_state + visible_size.z * (t + visible_size.w * (offset.y + diam * (offset.x + diam * hidden_column_index)))));
 
                 sum += weights[wi];
             }
@@ -157,7 +155,7 @@ __kernel void decoder_activate(
             float max_activation = -999999.0f;
 
             for (int c = 0; c < hidden_size.z; c++) {
-                float activation = activations[gt + hidden_size.w * (c + hidden_size.z * hidden_column_index)];
+                float activation = activations[c + hidden_size.z * (gt + hidden_size.w * hidden_column_index)];
 
                 if (activation > max_activation) {
                     max_activation = activation;
@@ -170,7 +168,7 @@ __kernel void decoder_activate(
             float total_activation = 0.0f;
 
             for (int c = 0; c < hidden_size.z; c++) {
-                int hidden_cell_index_scan = gt + hidden_size.w * (c + hidden_size.z * hidden_column_index);
+                int hidden_cell_index_scan = gc + hidden_size.z * (gt + hidden_size.w * hidden_column_index);
 
                 activations[hidden_cell_index_scan] = exp(activations[hidden_cell_index_scan] - max_activation);
 
@@ -180,7 +178,7 @@ __kernel void decoder_activate(
             float total_inv = 1.0f / max(0.0001f, total_activation);
 
             for (int c = 0; c < hidden_size.z; c++) {
-                int hidden_cell_index_scan = gt + hidden_size.w * (c + hidden_size.z * hidden_column_index);
+                int hidden_cell_index_scan = gc + hidden_size.z * (gt + hidden_size.w * hidden_column_index);
 
                 activations[hidden_cell_index_scan] *= total_inv;
             }
@@ -258,7 +256,7 @@ __kernel void encoder_activate(
 
                 int visible_state = visible_states[visible_column_index + num_visible_columns * slice];
 
-                int wi = gc + hidden_size.z * (t + visible_size.w * (visible_state + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_column_index))));
+                int wi = gc + hidden_size.z * (visible_state + visible_size.z * (t + visible_size.w * (offset.y + diam * (offset.x + diam * hidden_column_index))));
 
                 sum += weights[wi];
             }
@@ -318,6 +316,8 @@ __kernel void encoder_learn(
 
     __local int num_visible_columns;
 
+    __local int max_index;
+
     // Pre-compute for work group
     if (get_local_id(2) == 0) {
         visible_column_pos = (int2)(get_global_id(0), get_global_id(1));
@@ -364,7 +364,7 @@ __kernel void encoder_learn(
             {
                 int2 offset = (int2)(visible_column_pos.x - visible_center.x + radius, visible_column_pos.y - visible_center.y + radius);
 
-                int wi = hidden_state + hidden_size.z * (gt + visible_size.w * (gc + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_column_index))));
+                int wi = hidden_state + hidden_size.z * (gc + visible_size.z * (gt + visible_size.w * (offset.y + diam * (offset.x + diam * hidden_column_index))));
 
                 sum += weights[wi];
                 count++;
@@ -377,17 +377,21 @@ __kernel void encoder_learn(
 
     barrier(CLK_GLOBAL_MEM_FENCE);
 
-    int max_index = 0;
-    float max_activation = -999999.0f;
+    if (get_local_id(2) == 0) {
+        max_index = 0;
+        float max_activation = -999999.0f;
 
-    for (int c = 0; c < visible_size.z; c++) {
-        float recon = reconstruction[gt + visible_size.w * (c + visible_size.z * visible_column_index)];
+        for (int c = 0; c < visible_size.z; c++) {
+            float recon = reconstruction[gt + visible_size.w * (c + visible_size.z * visible_column_index)];
 
-        if (recon > max_activation) {
-            max_activation = recon;
-            max_index = c;
+            if (recon > max_activation) {
+                max_activation = recon;
+                max_index = c;
+            }
         }
     }
+
+    barrier(CLK_LOCAL_MEM_FENCE);
 
     if (max_index != target_state) {
         float delta = lr * ((gc == target_state) - exp(min(0.0f, sum - 1.0f)));
@@ -409,7 +413,7 @@ __kernel void encoder_learn(
                 {
                     int2 offset = (int2)(visible_column_pos.x - visible_center.x + radius, visible_column_pos.y - visible_center.y + radius);
 
-                    int wi = hidden_state + hidden_size.z * (gt + visible_size.w * (gc + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_column_index))));
+                    int wi = hidden_state + hidden_size.z * (gc + visible_size.z * (gt + visible_size.w * (offset.y + diam * (offset.x + diam * hidden_column_index))));
 
                     weights[wi] += delta;
                 }
