@@ -155,8 +155,10 @@ __kernel void decoder_activate(
             int max_index = 0;
             float max_activation = -999999.0f;
 
+            int hidden_cells_start = hidden_size.z * (gt + hidden_size.w * hidden_column_index);
+
             for (int c = 0; c < hidden_size.z; c++) {
-                float activation = activations[c + hidden_size.z * (gt + hidden_size.w * hidden_column_index)];
+                float activation = activations[c + hidden_cells_start];
 
                 if (activation > max_activation) {
                     max_activation = activation;
@@ -169,17 +171,19 @@ __kernel void decoder_activate(
             float total_activation = 0.0f;
 
             for (int c = 0; c < hidden_size.z; c++) {
-                int hidden_cell_index_scan = gc + hidden_size.z * (gt + hidden_size.w * hidden_column_index);
+                int hidden_cell_index_scan = c + hidden_cells_start;
 
-                activations[hidden_cell_index_scan] = exp(activations[hidden_cell_index_scan] - max_activation);
+                float activation = exp(activations[hidden_cell_index_scan] - max_activation);
 
-                total_activation += activations[hidden_cell_index_scan];
+                activations[hidden_cell_index_scan] = activation;
+
+                total_activation += activation;
             }
 
             float total_inv = 1.0f / max(0.0001f, total_activation);
 
             for (int c = 0; c < hidden_size.z; c++) {
-                int hidden_cell_index_scan = gc + hidden_size.z * (gt + hidden_size.w * hidden_column_index);
+                int hidden_cell_index_scan = c + hidden_cells_start;
 
                 activations[hidden_cell_index_scan] *= total_inv;
             }
@@ -274,8 +278,10 @@ __kernel void encoder_activate(
             int max_index = 0;
             float max_activation = -999999.0f;
 
+            int hidden_cells_start = hidden_size.z * hidden_column_index;
+
             for (int c = 0; c < hidden_size.z; c++) {
-                float activation = activations[c + hidden_size.z * hidden_column_index];
+                float activation = activations[c + hidden_cells_start];
 
                 if (activation > max_activation) {
                     max_activation = activation;
@@ -316,8 +322,6 @@ __kernel void encoder_learn(
     __local int2 iter_upper_bound;
 
     __local int num_visible_columns;
-
-    __local int max_index;
 
     // Pre-compute for work group
     if (get_local_id(2) == 0) {
@@ -374,24 +378,23 @@ __kernel void encoder_learn(
 
     sum /= max(1, count);
 
-    reconstruction[gt + visible_size.w * (gc + visible_size.z * visible_column_index)] = sum;
+    int visible_cells_start = visible_size.z * (gt + visible_size.w * visible_column_index);
+
+    reconstruction[gc + visible_cells_start] = sum;
 
     barrier(CLK_GLOBAL_MEM_FENCE);
 
-    if (get_local_id(2) == 0) {
-        float max_activation = -999999.0f;
+    int max_index = 0;
+    float max_activation = -999999.0f;
 
-        for (int c = 0; c < visible_size.z; c++) {
-            float recon = reconstruction[gt + visible_size.w * (c + visible_size.z * visible_column_index)];
+    for (int c = 0; c < visible_size.z; c++) {
+        float recon = reconstruction[c + visible_cells_start];
 
-            if (recon > max_activation) {
-                max_activation = recon;
-                max_index = c;
-            }
+        if (recon > max_activation) {
+            max_activation = recon;
+            max_index = c;
         }
     }
-
-    barrier(CLK_LOCAL_MEM_FENCE);
 
     if (max_index != target_state) {
         float delta = lr * ((gc == target_state) - exp(min(0.0f, sum - 1.0f)));
