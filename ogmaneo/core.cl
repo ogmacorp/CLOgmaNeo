@@ -322,6 +322,8 @@ __kernel void encoder_learn(
 
     __local int num_visible_columns;
 
+    __local int max_index;
+
     // Pre-compute for work group
     if (get_local_id(2) == 0) {
         visible_column_pos = (int2)(get_global_id(0), get_global_id(1));
@@ -383,17 +385,21 @@ __kernel void encoder_learn(
 
     barrier(CLK_GLOBAL_MEM_FENCE);
 
-    int max_index = 0;
-    float max_activation = -999999.0f;
+    if (get_local_id(2) == 0) {
+        max_index = 0;
+        float max_activation = -999999.0f;
 
-    for (int c = 0; c < visible_size.z; c++) {
-        float recon = reconstruction[c + visible_cells_start];
+        for (int c = 0; c < visible_size.z; c++) {
+            float recon = reconstruction[c + visible_cells_start];
 
-        if (recon > max_activation) {
-            max_activation = recon;
-            max_index = c;
+            if (recon > max_activation) {
+                max_activation = recon;
+                max_index = c;
+            }
         }
     }
+
+    barrier(CLK_LOCAL_MEM_FENCE);
 
     if (max_index != target_state) {
         float delta = lr * ((gc == target_state) - exp(min(0.0f, sum - 1.0f)));
