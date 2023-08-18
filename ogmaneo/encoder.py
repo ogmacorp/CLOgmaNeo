@@ -152,7 +152,7 @@ class Encoder:
                         np.int32(history_pos),
                         np.float32(self.lr))
 
-                cl.enqueue_nd_range_kernel(cq, self.encoder_learn_kernel, (vld.size[0], vld.size[1], vld.size[2] * vld.size[3]), (1, 1, vld.size[2])) # Don't overdo work group size, or might run out
+                cl.enqueue_nd_range_kernel(cq, self.encoder_learn_kernel, (vld.size[0], vld.size[1], vld.size[2] * vld.size[3]), (1, 1, vld.size[2]))
 
     def write(self, fd: io.IOBase):
         fd.write(struct.pack("iii", *self.hidden_size))

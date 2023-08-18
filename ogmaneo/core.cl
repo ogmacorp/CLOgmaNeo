@@ -45,6 +45,7 @@ __kernel void decoder_activate(
     int diam,
     float2 h_to_v,
     int history_pos,
+    int history_pos_prev,
     int target_pos,
     int target_temporal_horizon,
     float importance,
@@ -103,7 +104,7 @@ __kernel void decoder_activate(
         float delta = lr * ((gc == target_state) - activations_prev[hidden_cell_index]);
 
         for (int t = 0; t < visible_size.w; t++) {
-            int slice = (history_pos + t) % visible_size.w;
+            int slice = (history_pos_prev + t) % visible_size.w;
 
             for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
                 for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
@@ -378,7 +379,6 @@ __kernel void encoder_learn(
     barrier(CLK_GLOBAL_MEM_FENCE);
 
     if (get_local_id(2) == 0) {
-        max_index = 0;
         float max_activation = -999999.0f;
 
         for (int c = 0; c < visible_size.z; c++) {
