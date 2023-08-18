@@ -344,8 +344,6 @@ __kernel void encoder_learn(
 
     int target_state = visible_states[visible_column_index + num_visible_columns * gslice];
 
-    int temporal_visible_cell_index = gt + visible_size.w * (gc + visible_size.z * visible_column_index);
-
     float sum = 0.0f;
     int count = 0;
 
@@ -375,7 +373,7 @@ __kernel void encoder_learn(
 
     sum /= max(1, count);
 
-    reconstruction[temporal_visible_cell_index] = sum;
+    reconstruction[gt + visible_size.w * (gc + visible_size.z * visible_column_index)] = sum;
 
     barrier(CLK_GLOBAL_MEM_FENCE);
 

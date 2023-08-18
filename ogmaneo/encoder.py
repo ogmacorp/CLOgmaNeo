@@ -57,7 +57,7 @@ class Encoder:
                 self.vls.append(vl)
 
             # Hyperparameters
-            self.lr = 1.0
+            self.lr = 0.5
 
         else: # Load from h5py group
             self.hidden_size = struct.unpack("iii", fd.read(3 * np.dtype(np.int32).itemsize))
@@ -152,7 +152,7 @@ class Encoder:
                         np.int32(history_pos),
                         np.float32(self.lr))
 
-                cl.enqueue_nd_range_kernel(cq, self.encoder_learn_kernel, (vld.size[0], vld.size[1], vld.size[2] * vld.size[3]), (1, 1, vld.size[2] * vld.size[3]))
+                cl.enqueue_nd_range_kernel(cq, self.encoder_learn_kernel, (vld.size[0], vld.size[1], vld.size[2] * vld.size[3]), (1, 1, vld.size[2])) # Don't overdo work group size, or might run out
 
     def write(self, fd: io.IOBase):
         fd.write(struct.pack("iii", *self.hidden_size))

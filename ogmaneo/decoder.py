@@ -34,7 +34,7 @@ class Decoder:
             num_hidden_cells = num_hidden_columns * hidden_size[2]
 
             self.activations = cl.array.zeros(cq, (num_hidden_cells,), np.float32)
-            self.activations_prev = cl.array.zeros(cq, (num_hidden_cells,), np.float32)
+            self.activations_prev = cl.array.empty(cq, (num_hidden_cells,), np.float32)
             self.hidden_states = cl.array.zeros(cq, (num_hidden_columns,), np.int32)
 
             self.vlds = vlds
@@ -57,7 +57,7 @@ class Decoder:
                 self.vls.append(vl)
 
             # Parameters
-            self.lr = 2.0
+            self.lr = 1.0
 
         else: # Load from h5py group
             self.hidden_size = struct.unpack("iiii", fd.read(4 * np.dtype(np.int32).itemsize))
@@ -66,7 +66,7 @@ class Decoder:
             num_hidden_cells = num_hidden_columns * self.hidden_size[2]
 
             self.activations = cl.array.empty(cq, (num_hidden_cells,), np.float32)
-            self.activations_prev = cl.array.zeros(cq, (num_hidden_cells,), np.float32)
+            self.activations_prev = cl.array.empty(cq, (num_hidden_cells,), np.float32)
             self.hidden_states = cl.array.empty(cq, (num_hidden_columns,), np.int32)
 
             read_into_buffer(fd, self.activations)
@@ -135,7 +135,7 @@ class Decoder:
                     np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
                     np.int32(history_pos), np.int32(target_pos), np.int32(target_temporal_horizon), np.float32(1.0 / len(self.vls)), np.uint8(inhibit), np.float32(lr))
 
-            cl.enqueue_nd_range_kernel(cq, self.decoder_activate_kernel, (self.hidden_size[0], self.hidden_size[1], self.hidden_size[2] * self.hidden_size[3]), (1, 1, self.hidden_size[2] * self.hidden_size[3]))
+            cl.enqueue_nd_range_kernel(cq, self.decoder_activate_kernel, (self.hidden_size[0], self.hidden_size[1], self.hidden_size[2] * self.hidden_size[3]), (1, 1, self.hidden_size[2])) # Don't overdo workgroup size, or might run out
 
         # Copy to prevs
         for i in range(len(self.vls)):
