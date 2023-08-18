@@ -150,7 +150,7 @@ __kernel void decoder_activate(
     activations[hidden_cell_index] += sum * importance;
 
     if (inhibit) {
-        barrier(CLK_LOCAL_MEM_FENCE);
+        barrier(CLK_GLOBAL_MEM_FENCE);
 
         if (gc == 0) {
             int max_index = 0;
@@ -269,7 +269,7 @@ __kernel void encoder_activate(
     activations[hidden_cell_index] += sum * importance;
 
     if (inhibit) {
-        barrier(CLK_LOCAL_MEM_FENCE);
+        barrier(CLK_GLOBAL_MEM_FENCE);
 
         if (gc == 0) {
             int max_index = 0;
@@ -377,28 +377,44 @@ __kernel void encoder_learn(
 
     reconstruction[temporal_visible_cell_index] = sum;
 
-    float delta = lr * ((gc == target_state) - exp(min(0.0f, sum - 1.0f)));
+    barrier(CLK_GLOBAL_MEM_FENCE);
 
-    for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
-        for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
-            int2 hidden_column_pos = (int2)(ix, iy);
+    int max_index = 0;
+    float max_activation = -999999.0f;
 
-            int hidden_column_index = iy + hidden_size.y * ix;
+    for (int c = 0; c < visible_size.z; c++) {
+        float recon = reconstruction[gt + visible_size.w * (c + visible_size.z * visible_column_index)];
 
-            int hidden_state = hidden_states[hidden_column_index];
-
-            // Project
-            int2 visible_center = (int2)((hidden_column_pos.x + 0.5f) * h_to_v.x, (hidden_column_pos.y + 0.5f) * h_to_v.y);
-
-            // Bounds check
-            if (visible_column_pos.x >= visible_center.x - radius && visible_column_pos.x <= visible_center.x + radius &&
-                visible_column_pos.y >= visible_center.y - radius && visible_column_pos.y <= visible_center.y + radius)
-            {
-                int2 offset = (int2)(visible_column_pos.x - visible_center.x + radius, visible_column_pos.y - visible_center.y + radius);
-
-                int wi = hidden_state + hidden_size.z * (gt + visible_size.w * (gc + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_column_index))));
-
-                weights[wi] += delta;
-            }
+        if (recon > max_activation) {
+            max_activation = recon;
+            max_index = c;
         }
+    }
+
+    if (max_index != target_state) {
+        float delta = lr * ((gc == target_state) - exp(min(0.0f, sum - 1.0f)));
+
+        for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
+            for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
+                int2 hidden_column_pos = (int2)(ix, iy);
+
+                int hidden_column_index = iy + hidden_size.y * ix;
+
+                int hidden_state = hidden_states[hidden_column_index];
+
+                // Project
+                int2 visible_center = (int2)((hidden_column_pos.x + 0.5f) * h_to_v.x, (hidden_column_pos.y + 0.5f) * h_to_v.y);
+
+                // Bounds check
+                if (visible_column_pos.x >= visible_center.x - radius && visible_column_pos.x <= visible_center.x + radius &&
+                    visible_column_pos.y >= visible_center.y - radius && visible_column_pos.y <= visible_center.y + radius)
+                {
+                    int2 offset = (int2)(visible_column_pos.x - visible_center.x + radius, visible_column_pos.y - visible_center.y + radius);
+
+                    int wi = hidden_state + hidden_size.z * (gt + visible_size.w * (gc + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_column_index))));
+
+                    weights[wi] += delta;
+                }
+            }
+    }
 }
