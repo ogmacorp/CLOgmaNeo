@@ -261,7 +261,7 @@ __kernel void decoder_update_gates(
             }
         }
 
-    visible_gates[temporal_visible_column_index] = exp(-sum / (count * hidden_size.z * hidden_size.w) * gcurve);
+    gates[temporal_visible_column_index] = exp(-sum / (count * hidden_size.z * hidden_size.w) * gcurve);
 }
 
 __kernel void encoder_activate(
@@ -418,7 +418,6 @@ __kernel void encoder_update_gates(
                     sum += w * w;
                 }
         }
-    }
 
     sum /= count;
 
