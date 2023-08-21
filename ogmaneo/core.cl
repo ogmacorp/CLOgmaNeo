@@ -315,7 +315,9 @@ __kernel void encoder_activate(
 
     int gc = get_global_id(2);
 
-    int hidden_cell_index = gc + hidden_size.z * hidden_column_index;
+    int hidden_cells_start = hidden_size.z * hidden_column_index;
+
+    int hidden_cell_index = gc + hidden_cells_start;
 
     float sum = 0.0f;
 
@@ -349,8 +351,6 @@ __kernel void encoder_activate(
         if (gc == 0) {
             int max_index = 0;
             float max_activation = -999999.0f;
-
-            int hidden_cells_start = hidden_size.z * hidden_column_index;
 
             for (int c = 0; c < hidden_size.z; c++) {
                 float activation = activations[c + hidden_cells_start];
