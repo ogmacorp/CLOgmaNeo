@@ -138,13 +138,13 @@ class ImageEnc:
             # Pad 3-vecs to 4-vecs
             vec_visible_size = np.array(list(vld.size) + [ 1 ], dtype=np.int32)
 
-            inhibit = bool(i == len(self.vls) - 1)
-            lr = float(inhibit and learn_enabled) * self.lr
+            finish = bool(i == len(self.vls) - 1)
+            lr = float(finish and learn_enabled) * self.lr
 
             self.image_enc_activate_cache.set_args(visible_states[i].data, vl.protos.data, self.activations.data, self.hidden_states.data, self.hidden_rates.data,
                     vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
                     np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
-                    np.uint8(inhibit), np.float32(lr), np.float32(self.falloff))
+                    np.uint8(finish), np.float32(lr), np.float32(self.falloff))
 
             cl.enqueue_nd_range_kernel(cq, self.image_enc_activate_kernel, self.hidden_size, (1, 1, self.hidden_size[2]))
 
