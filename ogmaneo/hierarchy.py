@@ -95,7 +95,7 @@ class Hierarchy:
                 self.histories.append(io_history)
 
                 if i < len(lds) - 1:
-                    self.complete_states.append(cl.array.empty(cq, (self.lds[i].hidden_size[0] * self.lds[i].hidden_size[1] * 2,), dtype=np.int32))
+                    self.complete_states.append(cl.array.empty(cq, (lds[i].hidden_size[0] * lds[i].hidden_size[1] * 2,), dtype=np.int32))
 
             self.ticks = len(lds) * [ 0 ]
             self.ticks_per_update = [ lds[i].ticks_per_update for i in range(len(lds)) ]
