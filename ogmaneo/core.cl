@@ -122,7 +122,7 @@ __kernel void decoder_activate(
 
                     int wi = gc + hidden_size.z * (gt + hidden_size.w * (visible_state_prev + visible_size.z * (t + visible_size.w * (offset.y + diam * (offset.x + diam * hidden_column_index)))));
 
-                    weights[wi] += delta * gates[t + visible_size.w * visible_column_index];
+                    weights[wi] += delta * gates[visible_column_index + t * num_visible_columns];
                 }
         }
     }
@@ -227,8 +227,6 @@ __kernel void decoder_update_gates(
 
     int visible_state = visible_states[visible_column_index + num_visible_columns * gslice];
 
-    int temporal_visible_column_index = gt + visible_size.w * visible_column_index;
-
     float sum = 0.0f;
     int count = 0;
 
@@ -261,7 +259,7 @@ __kernel void decoder_update_gates(
             }
         }
 
-    gates[temporal_visible_column_index] = exp(-sum / (count * hidden_size.z * hidden_size.w) * gcurve);
+    gates[visible_column_index + gt * num_visible_columns] = exp(-sum / (count * hidden_size.z * hidden_size.w) * gcurve);
 }
 
 __kernel void encoder_activate(
