@@ -335,7 +335,7 @@ __kernel void encoder_activate(
 
                 int visible_state = visible_states[visible_column_index + visible_columns_start];
 
-                int wi = gc + hidden_size.z * (visible_state + visible_size.z * (t + visible_size.w * (offset.y + diam * (offset.x + diam * hidden_column_index))));
+                int wi = visible_state + visible_size.z * (t + visible_size.w * (offset.y + diam * (offset.x + diam * (gc + hidden_size.z * hidden_column_index))));
 
                 sum += weights[wi];
             }
@@ -411,7 +411,7 @@ __kernel void encoder_update_gates(
 
             for (int t = 0; t < visible_size.w; t++)
                 for (int c = 0; c < visible_size.z; c++) {
-                    int wi = hidden_state + hidden_size.z * (c + visible_size.z * (t + visible_size.w * (offset.y + diam * (offset.x + diam * hidden_column_index))));
+                    int wi = c + visible_size.z * (t + visible_size.w * (offset.y + diam * (offset.x + diam * (hidden_state + hidden_size.z * hidden_column_index))));
 
                     float w = 1.0f - weights[wi];
 
@@ -505,7 +505,7 @@ __kernel void encoder_learn(
             {
                 int2 offset = (int2)(visible_column_pos.x - visible_center.x + radius, visible_column_pos.y - visible_center.y + radius);
 
-                int wi = hidden_state + hidden_size.z * (gc + visible_size.z * (gt + visible_size.w * (offset.y + diam * (offset.x + diam * hidden_column_index))));
+                int wi = gc + visible_size.z * (gt + visible_size.w * (offset.y + diam * (offset.x + diam * (hidden_state + hidden_size.z * hidden_column_index))));
 
                 sum += weights[wi];
                 count++;
@@ -556,7 +556,7 @@ __kernel void encoder_learn(
                 {
                     int2 offset = (int2)(visible_column_pos.x - visible_center.x + radius, visible_column_pos.y - visible_center.y + radius);
 
-                    int wi = hidden_state + hidden_size.z * (gc + visible_size.z * (gt + visible_size.w * (offset.y + diam * (offset.x + diam * hidden_column_index))));
+                    int wi = gc + visible_size.z * (gt + visible_size.w * (offset.y + diam * (offset.x + diam * (hidden_state + hidden_size.z * hidden_column_index))));
 
                     weights[wi] += delta * gates[hidden_column_index];
                 }
