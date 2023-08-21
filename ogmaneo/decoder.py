@@ -30,12 +30,12 @@ class Decoder:
         if fd is None:
             self.hidden_size = hidden_size
 
-            num_hidden_columns = hidden_size[0] * hidden_size[1] * hidden_size[3]
+            num_hidden_columns = hidden_size[0] * hidden_size[1]
             num_hidden_cells = num_hidden_columns * hidden_size[2]
 
-            self.activations = cl.array.zeros(cq, (num_hidden_cells,), np.float32)
-            self.activations_prev = cl.array.empty(cq, (num_hidden_cells,), np.float32)
-            self.hidden_states = cl.array.zeros(cq, (num_hidden_columns,), np.int32)
+            self.activations = cl.array.zeros(cq, (num_hidden_cells * hidden_size[3],), np.float32)
+            self.activations_prev = cl.array.empty(cq, (num_hidden_cells * hidden_size[3],), np.float32)
+            self.hidden_states = cl.array.zeros(cq, (num_hidden_columns * hidden_size[3],), np.int32)
 
             self.vlds = vlds
             self.vls = []
@@ -49,7 +49,7 @@ class Decoder:
 
                 diam = vld.radius * 2 + 1
                 area = diam * diam
-                num_weights = num_hidden_cells * area * vld.size[2] * vld.size[3]
+                num_weights = num_hidden_cells * hidden_size[3] * area * vld.size[2] * vld.size[3]
 
                 vl.weights = cl.clrandom.rand(cq, (num_weights,), np.float32, a=-0.01, b=0.01)
                 vl.visible_states_prev = cl.array.zeros(cq, (num_visible_columns * vld.size[3],), np.int32)
@@ -60,17 +60,17 @@ class Decoder:
 
             # Parameters
             self.lr = 1.0
-            self.gcurve = 1.0
+            self.gcurve = 0.0
 
         else: # Load from h5py group
             self.hidden_size = struct.unpack("iiii", fd.read(4 * np.dtype(np.int32).itemsize))
 
-            num_hidden_columns = self.hidden_size[0] * self.hidden_size[1] * self.hidden_size[3]
+            num_hidden_columns = self.hidden_size[0] * self.hidden_size[1]
             num_hidden_cells = num_hidden_columns * self.hidden_size[2]
 
-            self.activations = cl.array.empty(cq, (num_hidden_cells,), np.float32)
-            self.activations_prev = cl.array.empty(cq, (num_hidden_cells,), np.float32)
-            self.hidden_states = cl.array.empty(cq, (num_hidden_columns,), np.int32)
+            self.activations = cl.array.empty(cq, (num_hidden_cells * hidden_size[3],), np.float32)
+            self.activations_prev = cl.array.empty(cq, (num_hidden_cells * hidden_size[3],), np.float32)
+            self.hidden_states = cl.array.empty(cq, (num_hidden_columns * hidden_size[3],), np.int32)
 
             read_into_buffer(fd, self.activations)
             read_into_buffer(fd, self.hidden_states)
@@ -92,7 +92,7 @@ class Decoder:
 
                 diam = vld.radius * 2 + 1
                 area = diam * diam
-                num_weights = num_hidden_cells * area * vld.size[2] * vld.size[3]
+                num_weights = num_hidden_cells * self.hidden_size[3] * area * vld.size[2] * vld.size[3]
 
                 vl.weights = cl.array.empty(cq, (num_weights,), np.float32)
                 vl.visible_states_prev = cl.array.empty(cq, (num_visible_columns * vld.size[3],), np.int32)
