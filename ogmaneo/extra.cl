@@ -19,7 +19,7 @@ __kernel void image_enc_activate(
     int radius,
     int diam,
     float2 h_to_v,
-    uchar inhibit,
+    uchar finish,
     float lr,
     float falloff
 ) {
@@ -85,7 +85,7 @@ __kernel void image_enc_activate(
 
     activations[hidden_cell_index] += sum;
 
-    if (inhibit) {
+    if (finish) {
         barrier(CLK_GLOBAL_MEM_FENCE);
 
         if (gc == 0) {
