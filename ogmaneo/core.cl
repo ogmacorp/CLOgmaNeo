@@ -122,7 +122,7 @@ __kernel void decoder_activate(
 
                     int wi = gc + hidden_size.z * (gt + hidden_size.w * (visible_state_prev + visible_size.z * (t + visible_size.w * (offset.y + diam * (offset.x + diam * hidden_column_index)))));
 
-                    weights[wi] += delta * gates[visible_column_index + visible_columns_start];
+                    weights[wi] += delta * gates[t + visible_size.w * visible_column_index];
                 }
         }
     }
