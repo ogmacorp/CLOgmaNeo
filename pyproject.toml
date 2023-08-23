@@ -6,7 +6,7 @@ packages = ["ogmaneo"]
 
 [project]
 name = "clogmaneo"
-version = "1.1.0"
+version = "1.2.0"
 description = "PyOpenCL implementation of Sparse Predictive Hierarchies"
 readme = "README.md"
 authors = [{ name = "Eric Laukien", email = "eric@ogmacorp.com" }]

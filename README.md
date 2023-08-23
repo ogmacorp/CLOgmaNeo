@@ -20,11 +20,7 @@ Welcome to the [Ogma](https://ogmacorp.com) CLOgmaNeo Python library. It impleme
 
 ## Installation
 
-You may install from pypi:
-
-> pip install clogmaneo
-
-Or from this directory:
+From this directory:
 
 > pip install .
 
@@ -36,6 +32,10 @@ The CLOgmaNeo module can be imported using:
 import ogmaneo
 ```
 
+## Examples
+
+Coming soon.
+
 ## Contributions
 
 Refer to the [CONTRIBUTING.md](./CONTRIBUTING.md) file for information on making contributions to CLOgmaNeo.
@@ -46,4 +46,4 @@ Refer to the [CONTRIBUTING.md](./CONTRIBUTING.md) file for information on making
 
 Contact Ogma via licenses@ogmacorp.com to discuss commercial use and licensing options.
 
-CLOgmaNeo Copyright (c) 2022 [Ogma Intelligent Systems Corp](https://ogmacorp.com). All rights reserved.
+CLOgmaNeo Copyright (c) 2023 [Ogma Intelligent Systems Corp](https://ogmacorp.com). All rights reserved.
