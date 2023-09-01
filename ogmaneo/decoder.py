@@ -65,9 +65,9 @@ class Decoder:
             num_hidden_columns = self.hidden_size[0] * self.hidden_size[1]
             num_hidden_cells = num_hidden_columns * self.hidden_size[2]
 
-            self.activations = cl.array.empty(cq, (num_hidden_cells * hidden_size[3],), np.float32)
-            self.activations_prev = cl.array.empty(cq, (num_hidden_cells * hidden_size[3],), np.float32)
-            self.hidden_states = cl.array.empty(cq, (num_hidden_columns * hidden_size[3],), np.int32)
+            self.activations = cl.array.empty(cq, (num_hidden_cells * self.hidden_size[3],), np.float32)
+            self.activations_prev = cl.array.empty(cq, (num_hidden_cells * self.hidden_size[3],), np.float32)
+            self.hidden_states = cl.array.empty(cq, (num_hidden_columns * self.hidden_size[3],), np.int32)
 
             read_into_buffer(fd, self.activations)
             read_into_buffer(fd, self.hidden_states)
