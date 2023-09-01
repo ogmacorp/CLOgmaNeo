@@ -58,7 +58,6 @@ class Encoder:
 
             # Hyperparameters
             self.lr = 0.5
-            self.gcurve = 0.1
 
         else: # Load from h5py group
             self.hidden_size = struct.unpack("iii", fd.read(3 * np.dtype(np.int32).itemsize))
@@ -99,7 +98,7 @@ class Encoder:
                 self.vls.append(vl)
 
             # Parameters
-            self.lr, self.gcurve = struct.unpack("ff", fd.read(np.dtype(np.float32).itemsize))
+            self.lr = struct.unpack("f", fd.read(np.dtype(np.float32).itemsize))[0]
 
         # Kernels
         self.encoder_activate_kernel = prog.encoder_activate.clone()
@@ -170,7 +169,7 @@ class Encoder:
 
             write_from_buffer(fd, vl.weights)
 
-        fd.write(struct.pack("ff", self.lr, self.gcurve))
+        fd.write(struct.pack("f", self.lr))
 
 
         

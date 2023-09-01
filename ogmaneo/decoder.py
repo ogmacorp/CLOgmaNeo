@@ -58,7 +58,6 @@ class Decoder:
 
             # Parameters
             self.lr = 1.0
-            self.gcurve = 0.1
 
         else: # Load from h5py group
             self.hidden_size = struct.unpack("iiii", fd.read(4 * np.dtype(np.int32).itemsize))
@@ -102,7 +101,7 @@ class Decoder:
                 self.vls.append(vl)
 
             # Parameters
-            self.lr, self.gcurve = struct.unpack("ff", fd.read(np.dtype(np.float32).itemsize))
+            self.lr = struct.unpack("f", fd.read(np.dtype(np.float32).itemsize))[0]
 
         # Kernels
         self.decoder_activate_kernel = prog.decoder_activate.clone()
@@ -162,4 +161,4 @@ class Decoder:
             write_from_buffer(fd, vl.weights)
             write_from_buffer(fd, vl.visible_states_prev)
 
-        fd.write(struct.pack("ff", self.lr, self.gcurve))
+        fd.write(struct.pack("f", self.lr))
