@@ -37,8 +37,6 @@ class Encoder:
             self.activations = cl.array.empty(cq, (num_hidden_cells,), np.float32)
             self.hidden_states = cl.array.zeros(cq, (num_hidden_columns,), np.int32)
 
-            self.gates = cl.array.empty(cq, (num_hidden_columns,), np.float32)
-
             self.vlds = vlds
             self.vls = []
 
@@ -70,8 +68,6 @@ class Encoder:
 
             self.activations = cl.array.empty(cq, (num_hidden_cells,), np.float32)
             self.hidden_states = cl.array.empty(cq, (num_hidden_columns,), np.int32)
-
-            self.gates = cl.array.empty(cq, (num_hidden_columns,), np.float32)
 
             read_into_buffer(fd, self.hidden_states)
             
@@ -107,11 +103,9 @@ class Encoder:
 
         # Kernels
         self.encoder_activate_kernel = prog.encoder_activate.clone()
-        self.encoder_update_gates_kernel = prog.encoder_update_gates.clone()
         self.encoder_learn_kernel = prog.encoder_learn.clone()
 
         self.encoder_activate_cache = KernelArgCache(self.encoder_activate_kernel)
-        self.encoder_update_gates_cache = KernelArgCache(self.encoder_update_gates_kernel)
         self.encoder_learn_cache = KernelArgCache(self.encoder_learn_kernel)
 
     def step(self, cq: cl.CommandQueue, visible_states: [ cl.array.Array ], history_pos: int, learn_enabled: bool = True):
@@ -142,27 +136,6 @@ class Encoder:
             cl.enqueue_nd_range_kernel(cq, self.encoder_activate_kernel, self.hidden_size, (1, 1, self.hidden_size[2]))
 
         if learn_enabled:
-            # clear
-            self.gates.fill(np.float32(0))
-
-            # Accumulate gates
-            for i in range(len(self.vls)):
-                vld = self.vlds[i]
-                vl = self.vls[i]
-
-                diam = vld.radius * 2 + 1
-
-                vec_visible_size = np.array(list(vld.size), dtype=np.int32)
-                
-                finish = bool(i == len(self.vls) - 1)
-
-                self.encoder_update_gates_cache.set_args(self.hidden_states.data, vl.weights.data, self.gates.data,
-                        vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
-                        np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
-                        np.float32(vld.importance / len(self.vls)), np.uint8(finish), np.float32(self.gcurve))
-
-                cl.enqueue_nd_range_kernel(cq, self.encoder_update_gates_kernel, (self.hidden_size[0], self.hidden_size[1]), None)
-
             for i in range(len(self.vls)):
                 vld = self.vlds[i]
                 vl = self.vls[i]
@@ -171,7 +144,7 @@ class Encoder:
 
                 vec_visible_size = np.array(list(vld.size), dtype=np.int32)
 
-                self.encoder_learn_cache.set_args(visible_states[i].data, self.hidden_states.data, self.gates.data, vl.weights.data, vl.reconstruction.data,
+                self.encoder_learn_cache.set_args(visible_states[i].data, self.hidden_states.data, vl.weights.data, vl.reconstruction.data,
                         vec_visible_size, vec_hidden_size, np.int32(vld.radius),
                         np.array([ math.ceil(diam * self.hidden_size[0] / vld.size[0] * 0.5), math.ceil(diam * self.hidden_size[1] / vld.size[1] * 0.5) ], np.int32),
                         np.int32(diam),
