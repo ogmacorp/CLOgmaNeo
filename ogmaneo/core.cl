@@ -107,8 +107,6 @@ __kernel void decoder_activate(
 
         float visible_size_z_inv = 1.0f / visible_size.z;
 
-        int diff_size_z = hidden_size.z - visible_size.z;
-
         int num_batches = (visible_size.z + hidden_size.z - 1) / hidden_size.z; // ceil division of visible_size.z by hidden_size.z
 
         // perform in batches
