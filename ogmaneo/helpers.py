@@ -44,7 +44,9 @@ class KernelArgCache:
         for i in range(self.num_args):
             arg_set = False
 
-            if self.args_prev[i] is None:
+            if self.args[i] is None: # Skip
+                self.args_prev[i] = self.args[i]
+            elif self.args_prev[i] is None:
                 arg_set = True
                 self.args_prev[i] = self.args[i]
             elif isinstance(self.args[i], cl.MemoryObject):
