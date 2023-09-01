@@ -57,7 +57,7 @@ class Encoder:
                 self.vls.append(vl)
 
             # Hyperparameters
-            self.lr = 0.5
+            self.lr = 0.1
 
         else: # Load from h5py group
             self.hidden_size = struct.unpack("iii", fd.read(3 * np.dtype(np.int32).itemsize))

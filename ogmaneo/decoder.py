@@ -51,13 +51,13 @@ class Decoder:
                 area = diam * diam
                 num_weights = num_hidden_cells * hidden_size[3] * area * vld.size[2] * vld.size[3]
 
-                vl.weights = cl.clrandom.rand(cq, (num_weights,), np.float32, a=-0.01, b=0.01)
+                vl.weights = cl.clrandom.rand(cq, (num_weights,), np.float32, a=0.0, b=0.01)
                 vl.visible_states_prev = cl.array.zeros(cq, (num_visible_columns * vld.size[3],), np.int32)
 
                 self.vls.append(vl)
 
             # Parameters
-            self.lr = 1.0
+            self.lr = 0.1
 
         else: # Load from h5py group
             self.hidden_size = struct.unpack("iiii", fd.read(4 * np.dtype(np.int32).itemsize))
