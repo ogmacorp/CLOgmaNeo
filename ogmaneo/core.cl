@@ -32,13 +32,13 @@ __kernel void stack_slices(
 }
 
 __kernel void decoder_activate(
-    __global const int* visible_states,
-    __global const int* visible_states_prev,
-    __global const int* target_hidden_states,
-    __global const float* activations_prev,
-    __global float* weights,
-    __global float* activations,
-    __global int* hidden_states,
+    __global const int* restrict visible_states,
+    __global const int* restrict visible_states_prev,
+    __global const int* restrict target_hidden_states,
+    __global const float* restrict activations_prev,
+    __global float* restrict weights,
+    __global float* restrict activations,
+    __global int* restrict hidden_states,
     int4 visible_size,
     int4 hidden_size,
     int radius,
@@ -132,7 +132,7 @@ __kernel void decoder_activate(
 
                         int wi = target_state + hidden_size.z * (gt + hidden_size.w * (c + visible_size.z * (t + visible_size.w * (offset.y + diam * (offset.x + diam * hidden_column_index)))));
 
-                        weights[wi] = min(1.0f, max(0.0f, weights[wi] + delta * ((c == visible_state_prev) - visible_size_z_inv)));
+                        weights[wi] = clamp(weights[wi] + delta * ((c == visible_state_prev) - visible_size_z_inv), 0.0f, 1.0f);
                     }
             }
         }
@@ -205,10 +205,10 @@ __kernel void decoder_activate(
 }
 
 __kernel void encoder_activate(
-    __global const int* visible_states,
-    __global const float* weights,
-    __global float* activations,
-    __global int* hidden_states,
+    __global const int* restrict visible_states,
+    __global const float* restrict weights,
+    __global float* restrict activations,
+    __global int* restrict hidden_states,
     int4 visible_size,
     int4 hidden_size,
     int radius,
@@ -309,10 +309,10 @@ __kernel void encoder_activate(
 }
 
 __kernel void encoder_learn(
-    __global const int* visible_states,
-    __global const int* hidden_states,
-    __global float* weights,
-    __global float* reconstruction,
+    __global const int* restrict visible_states,
+    __global const int* restrict hidden_states,
+    __global float* restrict weights,
+    __global float* restrict reconstruction,
     int4 visible_size,
     int4 hidden_size,
     int radius,
