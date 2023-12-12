@@ -103,7 +103,7 @@ __kernel void decoder_activate(
     int hidden_cell_index = gc + hidden_cells_start;
 
     if (lr != 0.0f) {
-        float delta = lr * (1.0f - activations_prev[hidden_cell_index]);
+        float delta = lr * ((gc == target_state) - activations_prev[hidden_cell_index]);
 
         for (int t = 0; t < visible_size.w; t++) {
             int slice = (history_pos_prev + t) % visible_size.w;
