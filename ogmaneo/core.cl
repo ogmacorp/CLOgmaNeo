@@ -105,36 +105,24 @@ __kernel void decoder_activate(
     if (lr != 0.0f) {
         float delta = lr * (1.0f - activations_prev[hidden_cell_index]);
 
-        float visible_size_z_inv = 1.0f / visible_size.z;
+        for (int t = 0; t < visible_size.w; t++) {
+            int slice = (history_pos_prev + t) % visible_size.w;
+            int visible_columns_start = num_visible_columns * slice;
 
-        int num_batches = (visible_size.z + hidden_size.z - 1) / hidden_size.z; // ceil division of visible_size.z by hidden_size.z
+            for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
+                for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
+                    int2 visible_column_pos = (int2)(ix, iy);
 
-        // perform in batches
-        for (int b = 0; b < num_batches; b++) {
-            int c = gc + b * hidden_size.z;
+                    int visible_column_index = iy + visible_size.y * ix;
 
-            if (c >= visible_size.z)
-                break;
+                    int2 offset = visible_column_pos - field_lower_bound;
 
-            for (int t = 0; t < visible_size.w; t++) {
-                int slice = (history_pos_prev + t) % visible_size.w;
-                int visible_columns_start = num_visible_columns * slice;
+                    int visible_state_prev = visible_states_prev[visible_column_index + visible_columns_start];
 
-                for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
-                    for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
-                        int2 visible_column_pos = (int2)(ix, iy);
+                    int wi = gc + hidden_size.z * (gt + hidden_size.w * (visible_state_prev + visible_size.z * (t + visible_size.w * (offset.y + diam * (offset.x + diam * hidden_column_index)))));
 
-                        int visible_column_index = iy + visible_size.y * ix;
-
-                        int2 offset = visible_column_pos - field_lower_bound;
-
-                        int visible_state_prev = visible_states_prev[visible_column_index + visible_columns_start];
-
-                        int wi = target_state + hidden_size.z * (gt + hidden_size.w * (c + visible_size.z * (t + visible_size.w * (offset.y + diam * (offset.x + diam * hidden_column_index)))));
-
-                        weights[wi] = clamp(weights[wi] + delta * ((c == visible_state_prev) - visible_size_z_inv), 0.0f, 1.0f);
-                    }
-            }
+                    weights[wi] += delta;
+                }
         }
     }
 
