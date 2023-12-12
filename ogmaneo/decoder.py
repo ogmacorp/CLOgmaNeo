@@ -57,7 +57,7 @@ class Decoder:
                 self.vls.append(vl)
 
             # Parameters
-            self.lr = 0.1
+            self.lr = 1.0
 
         else: # Load from h5py group
             self.hidden_size = struct.unpack("iiii", fd.read(4 * np.dtype(np.int32).itemsize))
