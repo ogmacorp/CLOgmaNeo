@@ -26,15 +26,19 @@ class Decoder:
         weights: cl.array.Array
         visible_states_prev: cl.array.Array
 
-    def __init__(self, cq: cl.CommandQueue, prog: cl.Program, hidden_size: (int, int, int, int) = (4, 4, 16, 1), vlds: [ VisibleLayerDesc ] = [], fd: io.IOBase = None):
+    def __init__(self, cq: cl.CommandQueue, prog: cl.Program, hidden_size: (int, int, int, int) = (4, 4, 16, 1), num_dendrites_per_cell=4, vlds: [ VisibleLayerDesc ] = [], fd: io.IOBase = None):
         if fd is None:
             self.hidden_size = hidden_size
+            self.num_dendrites_per_cell = num_dendrites_per_cell
 
             num_hidden_columns = hidden_size[0] * hidden_size[1]
             num_hidden_cells = num_hidden_columns * hidden_size[2]
+            num_hidden_dendrites = num_hidden_cells * num_dendrites_per_cell
 
-            self.activations = cl.array.zeros(cq, (num_hidden_cells * hidden_size[3],), np.float32)
-            self.activations_prev = cl.array.empty(cq, (num_hidden_cells * hidden_size[3],), np.float32)
+            self.dendrite_activations = cl.array.zeros(cq, (num_hidden_dendrites * hidden_size[3],), np.float32)
+            self.dendrite_activations_prev = cl.array.zeros(cq, (num_hidden_dendrites * hidden_size[3],), np.float32)
+            self.hidden_activations = cl.array.zeros(cq, (num_hidden_cells * hidden_size[3],), np.float32)
+            self.hidden_activations_prev = cl.array.empty(cq, (num_hidden_cells * hidden_size[3],), np.float32)
             self.hidden_states = cl.array.zeros(cq, (num_hidden_columns * hidden_size[3],), np.int32)
 
             self.vlds = vlds
@@ -49,27 +53,34 @@ class Decoder:
 
                 diam = vld.radius * 2 + 1
                 area = diam * diam
-                num_weights = num_hidden_cells * hidden_size[3] * area * vld.size[2] * vld.size[3]
+                num_weights = num_hidden_dendrites * hidden_size[3] * area * vld.size[2] * vld.size[3]
 
-                vl.weights = cl.clrandom.rand(cq, (num_weights,), np.float32, a=0.0, b=0.01)
+                vl.weights = cl.clrandom.rand(cq, (num_weights,), np.uint8, a=250, b=255)
                 vl.visible_states_prev = cl.array.zeros(cq, (num_visible_columns * vld.size[3],), np.int32)
 
                 self.vls.append(vl)
 
             # Parameters
-            self.lr = 1.0
+            self.scale = 8.0
+            self.lr = 0.05
+            self.leak = 0.01
 
         else: # Load from h5py group
             self.hidden_size = struct.unpack("iiii", fd.read(4 * np.dtype(np.int32).itemsize))
+            self.num_dendrites_per_cell = struct.unpack("i", fd.read(np.dtype(np.int32).itemsize))
 
             num_hidden_columns = self.hidden_size[0] * self.hidden_size[1]
             num_hidden_cells = num_hidden_columns * self.hidden_size[2]
+            num_hidden_dendrites = num_hidden_cells * self.num_dendrites_per_cell
 
-            self.activations = cl.array.empty(cq, (num_hidden_cells * self.hidden_size[3],), np.float32)
-            self.activations_prev = cl.array.empty(cq, (num_hidden_cells * self.hidden_size[3],), np.float32)
-            self.hidden_states = cl.array.empty(cq, (num_hidden_columns * self.hidden_size[3],), np.int32)
+            self.dendrite_activations = cl.array.zeros(cq, (num_hidden_dendrites * hidden_size[3],), np.float32)
+            self.dendrite_activations_prev = cl.array.zeros(cq, (num_hidden_dendrites * hidden_size[3],), np.float32)
+            self.hidden_activations = cl.array.zeros(cq, (num_hidden_cells * hidden_size[3],), np.float32)
+            self.hidden_activations_prev = cl.array.empty(cq, (num_hidden_cells * hidden_size[3],), np.float32)
+            self.hidden_states = cl.array.zeros(cq, (num_hidden_columns * hidden_size[3],), np.int32)
 
-            read_into_buffer(fd, self.activations)
+            read_into_buffer(fd, self.dendrite_activations)
+            read_into_buffer(fd, self.hidden_activations)
             read_into_buffer(fd, self.hidden_states)
             
             num_visible_layers = struct.unpack("i", fd.read(np.dtype(np.int32).itemsize))[0]
@@ -89,9 +100,9 @@ class Decoder:
 
                 diam = vld.radius * 2 + 1
                 area = diam * diam
-                num_weights = num_hidden_cells * self.hidden_size[3] * area * vld.size[2] * vld.size[3]
+                num_weights = num_dendrites_per_cell * self.hidden_size[3] * area * vld.size[2] * vld.size[3]
 
-                vl.weights = cl.array.empty(cq, (num_weights,), np.float32)
+                vl.weights = cl.array.empty(cq, (num_weights,), np.uint8)
                 vl.visible_states_prev = cl.array.empty(cq, (num_visible_columns * vld.size[3],), np.int32)
 
                 read_into_buffer(fd, vl.weights)
@@ -101,7 +112,7 @@ class Decoder:
                 self.vls.append(vl)
 
             # Parameters
-            self.lr = struct.unpack("f", fd.read(np.dtype(np.float32).itemsize))[0]
+            self.scale, self.lr, self.leak = struct.unpack("fff", 3 * fd.read(np.dtype(np.float32).itemsize))
 
         # Kernels
         self.decoder_activate_kernel = prog.decoder_activate.clone()
@@ -113,10 +124,12 @@ class Decoder:
 
         vec_hidden_size = np.array(list(self.hidden_size), dtype=np.int32)
 
-        # Clear
-        cl.enqueue_copy(cq, self.activations_prev.data, self.activations.data)
+        # Buffer
+        cl.enqueue_copy(cq, self.dendrite_activations_prev.data, self.dendrite_activations.data)
+        cl.enqueue_copy(cq, self.hidden_activations_prev.data, self.hidden_activations.data)
 
-        self.activations.fill(np.float32(0))
+        # Clear
+        self.dendrite_activations.fill(np.float32(0))
 
         # Accumulate for all visible layers
         for i in range(len(self.vls)):
@@ -130,10 +143,11 @@ class Decoder:
             finish = bool(i == len(self.vls) - 1)
             lr = float(i == 0 and learn_enabled) * self.lr
 
-            self.decoder_activate_cache.set_args(visible_states[i].data, vl.visible_states_prev.data, target_hidden_states.data, self.activations_prev.data, vl.weights.data, self.activations.data, self.hidden_states.data,
-                    vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
+            self.decoder_activate_cache.set_args(visible_states[i].data, vl.visible_states_prev.data, target_hidden_states.data, self.dendrite_activations_prev.data, self.hidden_activations_prev.data, vl.weights.data,
+                    self.dendrite_activations.data, self.hidden_activations.data, self.hidden_states.data,
+                    vec_visible_size, vec_hidden_size, np.int32(self.num_dendrites_per_cell), np.int32(vld.radius), np.int32(diam),
                     np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
-                    np.int32(history_pos), np.int32(history_pos_prev), np.int32(target_pos), np.int32(target_temporal_horizon), np.float32(1.0 / len(self.vls)), np.uint8(finish), np.float32(lr))
+                    np.int32(history_pos), np.int32(history_pos_prev), np.int32(target_pos), np.int32(target_temporal_horizon), np.float32(1.0 / len(self.vls)), np.uint8(finish), np.float32(self.scale), np.float32(lr), np.float32(self.leak))
 
             cl.enqueue_nd_range_kernel(cq, self.decoder_activate_kernel, (self.hidden_size[0], self.hidden_size[1], self.hidden_size[2] * self.hidden_size[3]), (1, 1, self.hidden_size[2]))
 
@@ -146,8 +160,10 @@ class Decoder:
 
     def write(self, fd: io.IOBase):
         fd.write(struct.pack("iiii", *self.hidden_size))
+        fd.write(struct.pack("i", self.num_dendrites_per_cell))
 
-        write_from_buffer(fd, self.activations)
+        write_from_buffer(fd, self.dendrite_activations)
+        write_from_buffer(fd, self.hidden_activations)
         write_from_buffer(fd, self.hidden_states)
 
         fd.write(struct.pack("i", len(self.vlds)))
@@ -161,4 +177,4 @@ class Decoder:
             write_from_buffer(fd, vl.weights)
             write_from_buffer(fd, vl.visible_states_prev)
 
-        fd.write(struct.pack("f", self.lr))
+        fd.write(struct.pack("fff", self.scale, self.lr, self.leak))

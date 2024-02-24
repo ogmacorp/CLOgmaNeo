@@ -32,15 +32,18 @@ __kernel void stack_slices(
 }
 
 __kernel void decoder_activate(
-    __global const int* restrict visible_states,
-    __global const int* restrict visible_states_prev,
-    __global const int* restrict target_hidden_states,
-    __global const float* restrict activations_prev,
-    __global float* restrict weights,
-    __global float* restrict activations,
-    __global int* restrict hidden_states,
+    __global const int* visible_states,
+    __global const int* visible_states_prev,
+    __global const int* target_hidden_states,
+    __global const float* dendrite_activations_prev,
+    __global const float* hidden_activations_prev,
+    __global float* weights,
+    __global float* dendrite_activations,
+    __global float* hidden_activations,
+    __global int* hidden_states,
     int4 visible_size,
     int4 hidden_size,
+    int num_dendrites_per_cell,
     int radius,
     int diam,
     float2 h_to_v,
@@ -50,7 +53,9 @@ __kernel void decoder_activate(
     int target_temporal_horizon,
     float importance,
     uchar finish,
-    float lr
+    float scale,
+    float lr,
+    float leak
 ) {
     __local int2 hidden_column_pos;
     __local int hidden_column_index;
@@ -68,6 +73,8 @@ __kernel void decoder_activate(
 
     __local int num_hidden_columns;
     __local int num_visible_columns;
+
+    __local int half_num_dendrites_per_cell;
 
     // Pre-compute for work group
     if (get_local_id(2) == 0) {
@@ -87,6 +94,8 @@ __kernel void decoder_activate(
 
         num_hidden_columns = hidden_size.x * hidden_size.y;
         num_visible_columns = visible_size.x * visible_size.y;
+
+        half_num_dendrites_per_cell = num_dendrites_per_cell / 2;
     }
 
     barrier(CLK_LOCAL_MEM_FENCE);
@@ -102,11 +111,45 @@ __kernel void decoder_activate(
 
     int hidden_cell_index = gc + hidden_cells_start;
 
+    int dendrites_start = num_dendrites_per_cell * hidden_cell_index;
+
     if (lr != 0.0f) {
-        float delta = lr * ((gc == target_state) - activations_prev[hidden_cell_index]);
+        float hidden_delta = lr * ((gc == target_state) - hidden_activations_prev[hidden_cell_index]);
+
+        for (int di = 0; di < num_dendrites_per_cell; di++) {
+            int dendrite_index = di + dendrites_start;
+
+            float dendrite_delta = hidden_delta * ((di >= half_num_dendrites_per_cell) * 2.0f - 1.0f) * ((dendrite_activations_prev[dendrite_index] > 0.0f) * (1.0f - leak) + leak);
+
+            for (int t = 0; t < visible_size.w; t++) {
+                int slice = (history_pos_prev + t) % visible_size.w;
+                int visible_columns_start = num_visible_columns * slice;
+
+                for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
+                    for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
+                        int2 visible_column_pos = (int2)(ix, iy);
+
+                        int visible_column_index = iy + visible_size.y * ix;
+
+                        int2 offset = visible_column_pos - field_lower_bound;
+
+                        int visible_state_prev = visible_states_prev[visible_column_index + visible_columns_start];
+
+                        int wi = gc + hidden_size.z * (gt + hidden_size.w * (visible_state_prev + visible_size.z * (t + visible_size.w * (offset.y + diam * (offset.x + diam * (di + num_dendrites_per_cell * hidden_column_index))))));
+
+                        weights[wi] += dendrite_delta;
+                    }
+            }
+        }
+    }
+
+    for (int di = 0; di < num_dendrites_per_cell; di++) {
+        int dendrite_index = di + dendrites_start;
+
+        float sum = 0.0f;
 
         for (int t = 0; t < visible_size.w; t++) {
-            int slice = (history_pos_prev + t) % visible_size.w;
+            int slice = (history_pos + t) % visible_size.w;
             int visible_columns_start = num_visible_columns * slice;
 
             for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
@@ -117,42 +160,34 @@ __kernel void decoder_activate(
 
                     int2 offset = visible_column_pos - field_lower_bound;
 
-                    int visible_state_prev = visible_states_prev[visible_column_index + visible_columns_start];
+                    int visible_state = visible_states[visible_column_index + visible_columns_start];
 
-                    int wi = gc + hidden_size.z * (gt + hidden_size.w * (visible_state_prev + visible_size.z * (t + visible_size.w * (offset.y + diam * (offset.x + diam * hidden_column_index)))));
+                    int wi = gc + hidden_size.z * (gt + hidden_size.w * (visible_state + visible_size.z * (t + visible_size.w * (offset.y + diam * (offset.x + diam * (di + num_dendrites_per_cell * hidden_column_index))))));
 
-                    weights[wi] += delta;
+                    sum += weights[wi];
                 }
         }
+
+        sum *= sqrt(1.0f / count) / 255.0f;
+
+        dendrite_activations[dendrite_index] += dendrite_activation * importance;
     }
-
-    float sum = 0.0f;
-
-    for (int t = 0; t < visible_size.w; t++) {
-        int slice = (history_pos + t) % visible_size.w;
-        int visible_columns_start = num_visible_columns * slice;
-
-        for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
-            for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
-                int2 visible_column_pos = (int2)(ix, iy);
-
-                int visible_column_index = iy + visible_size.y * ix;
-
-                int2 offset = visible_column_pos - field_lower_bound;
-
-                int visible_state = visible_states[visible_column_index + visible_columns_start];
-
-                int wi = gc + hidden_size.z * (gt + hidden_size.w * (visible_state + visible_size.z * (t + visible_size.w * (offset.y + diam * (offset.x + diam * hidden_column_index)))));
-
-                sum += weights[wi];
-            }
-    }
-
-    sum /= count;
-
-    activations[hidden_cell_index] += sum * importance;
 
     if (finish) {
+        float activation = 0.0f;
+
+        for (int di = 0; di < num_dendrites_per_cell; di++) {
+            int dendrite_index = di + dendrites_start;
+
+            dendrite_activations[dendrite_index] = max(dendrite_activations[dendrite_index], dendrite_activations[dendrite_index] * leak);
+
+            activation += dendrite_activations[dendrite_index] * ((di >= half_num_dendrites_per_cell) * 2.0f - 1.0f);
+        }
+        
+        activation *= sqrtf(1.0f / num_dendrites_per_cell);
+
+        hidden_activations[hidden_cell_index] = activation;
+
         barrier(CLK_GLOBAL_MEM_FENCE);
 
         if (gc == 0) {
@@ -193,10 +228,10 @@ __kernel void decoder_activate(
 }
 
 __kernel void encoder_activate(
-    __global const int* restrict visible_states,
-    __global const float* restrict weights,
-    __global float* restrict activations,
-    __global int* restrict hidden_states,
+    __global const int* visible_states,
+    __global const float* weights,
+    __global float* activations,
+    __global int* hidden_states,
     int4 visible_size,
     int4 hidden_size,
     int radius,
@@ -297,10 +332,10 @@ __kernel void encoder_activate(
 }
 
 __kernel void encoder_learn(
-    __global const int* restrict visible_states,
-    __global const int* restrict hidden_states,
-    __global float* restrict weights,
-    __global float* restrict reconstruction,
+    __global const int* visible_states,
+    __global const int* hidden_states,
+    __global float* weights,
+    __global float* reconstruction,
     int4 visible_size,
     int4 hidden_size,
     int radius,
