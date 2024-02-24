@@ -53,7 +53,6 @@ __kernel void decoder_activate(
     int target_temporal_horizon,
     float importance,
     uchar finish,
-    float scale,
     float lr,
     float leak
 ) {
@@ -184,7 +183,7 @@ __kernel void decoder_activate(
             activation += dendrite_activations[dendrite_index] * ((di >= half_num_dendrites_per_cell) * 2.0f - 1.0f);
         }
         
-        activation *= sqrt(1.0f / num_dendrites_per_cell) * scale;
+        activation *= sqrt(1.0f / num_dendrites_per_cell);
 
         hidden_activations[hidden_cell_index] = activation;
 
@@ -344,7 +343,6 @@ __kernel void encoder_learn(
     float2 h_to_v,
     float2 v_to_h,
     int history_pos,
-    float scale,
     float lr,
     int early_stop_cells
 ) {
