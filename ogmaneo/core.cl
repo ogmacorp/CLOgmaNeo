@@ -137,7 +137,7 @@ __kernel void decoder_activate(
 
                         int wi = gc + hidden_size.z * (gt + hidden_size.w * (visible_state_prev + visible_size.z * (t + visible_size.w * (offset.y + diam * (offset.x + diam * (di + num_dendrites_per_cell * hidden_column_index))))));
 
-                        weights[wi] = min(127, max(-127, weights[wi] + dendrite_delta));
+                        weights[wi] = min(127, max(-127, (int)weights[wi] + dendrite_delta));
                     }
             }
         }
@@ -170,7 +170,7 @@ __kernel void decoder_activate(
 
         sum *= sqrt(1.0f / count) / 127.0f;
 
-        dendrite_activations[dendrite_index] += dendrite_activation * importance;
+        dendrite_activations[dendrite_index] += sum * importance;
     }
 
     if (finish) {
@@ -184,7 +184,7 @@ __kernel void decoder_activate(
             activation += dendrite_activations[dendrite_index] * ((di >= half_num_dendrites_per_cell) * 2.0f - 1.0f);
         }
         
-        activation *= sqrtf(1.0f / num_dendrites_per_cell) * scale;
+        activation *= sqrt(1.0f / num_dendrites_per_cell) * scale;
 
         hidden_activations[hidden_cell_index] = activation;
 
@@ -195,7 +195,7 @@ __kernel void decoder_activate(
             float max_activation = -999999.0f;
 
             for (int c = 0; c < hidden_size.z; c++) {
-                float activation = activations[c + hidden_cells_start];
+                float activation = hidden_activations[c + hidden_cells_start];
 
                 if (activation > max_activation) {
                     max_activation = activation;
@@ -210,11 +210,11 @@ __kernel void decoder_activate(
             for (int c = 0; c < hidden_size.z; c++) {
                 int hidden_cell_index_scan = c + hidden_cells_start;
 
-                float activation = activations[hidden_cell_index_scan];
+                float activation = hidden_activations[hidden_cell_index_scan];
 
                 activation = exp(activation - max_activation);
 
-                activations[hidden_cell_index_scan] = activation;
+                hidden_activations[hidden_cell_index_scan] = activation;
 
                 total_activation += activation;
             }
@@ -222,7 +222,7 @@ __kernel void decoder_activate(
             float total_inv = 1.0f / max(0.0001f, total_activation);
 
             for (int c = 0; c < hidden_size.z; c++)
-                activations[c + hidden_cells_start] *= total_inv;
+                hidden_activations[c + hidden_cells_start] *= total_inv;
         }
     }
 }
@@ -461,7 +461,7 @@ __kernel void encoder_learn(
 
                     int wi = gc + visible_size.z * (gt + visible_size.w * (offset.y + diam * (offset.x + diam * (hidden_state + hidden_size.z * hidden_column_index))));
 
-                    weights[wi] = min(255, max(0, weights[wi] + delta);
+                    weights[wi] = min(255, max(0, (int)weights[wi] + delta));
                 }
             }
     }
