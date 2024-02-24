@@ -142,7 +142,8 @@ class Decoder:
             finish = bool(i == len(self.vls) - 1)
             lr = float(i == 0 and learn_enabled) * self.lr
 
-            self.decoder_activate_cache.set_args(visible_states[i].data, vl.visible_states_prev.data, target_hidden_states.data, self.dendrite_activations_prev.data, self.hidden_activations_prev.data, vl.weights.data,
+            self.decoder_activate_cache.set_args(visible_states[i].data, vl.visible_states_prev.data, target_hidden_states.data,
+                    self.dendrite_activations_prev.data, self.hidden_activations_prev.data, vl.weights.data,
                     self.dendrite_activations.data, self.hidden_activations.data, self.hidden_states.data,
                     vec_visible_size, vec_hidden_size, np.int32(self.num_dendrites_per_cell), np.int32(vld.radius), np.int32(diam),
                     np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
