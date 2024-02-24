@@ -51,13 +51,15 @@ class Encoder:
                 area = diam * diam
                 num_weights = num_hidden_cells * area * vld.size[2] * vld.size[3]
 
-                vl.weights = cl.clrandom.rand(cq, (num_weights,), np.float32, a=0.99, b=1.0)
+                vl.weights = cl.clrandom.rand(cq, (num_weights,), np.uint8, a=246, b=255)
                 vl.reconstruction = cl.array.empty(cq, (num_visible_cells * vld.size[3],), np.float32)
 
                 self.vls.append(vl)
 
             # Hyperparameters
-            self.lr = 0.1
+            self.scale = 8.0
+            self.lr = 0.02
+            self.early_stop_cells = 2
 
         else: # Load from h5py group
             self.hidden_size = struct.unpack("iii", fd.read(3 * np.dtype(np.int32).itemsize))
@@ -89,7 +91,7 @@ class Encoder:
                 area = diam * diam
                 num_weights = num_hidden_cells * area * vld.size[2] * vld.size[3]
 
-                vl.weights = cl.array.empty(cq, (num_weights,), np.float32)
+                vl.weights = cl.array.empty(cq, (num_weights,), np.uint8)
                 vl.reconstruction = cl.array.empty(cq, (num_visible_cells * vld.size[3],), np.float32)
 
                 read_into_buffer(fd, vl.weights)
@@ -98,7 +100,7 @@ class Encoder:
                 self.vls.append(vl)
 
             # Parameters
-            self.lr = struct.unpack("f", fd.read(np.dtype(np.float32).itemsize))[0]
+            self.scale, self.lr, self.early_stop_cells = struct.unpack("ffi", fd.read(np.dtype(np.float32).itemsize))[0]
 
         # Kernels
         self.encoder_activate_kernel = prog.encoder_activate.clone()
@@ -169,7 +171,7 @@ class Encoder:
 
             write_from_buffer(fd, vl.weights)
 
-        fd.write(struct.pack("f", self.lr))
+        fd.write(struct.pack("ffi", self.scale, self.lr, self.early_stop_cells))
 
 
         
