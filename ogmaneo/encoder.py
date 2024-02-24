@@ -51,7 +51,7 @@ class Encoder:
                 area = diam * diam
                 num_weights = num_hidden_cells * area * vld.size[2] * vld.size[3]
 
-                vl.weights = cl.clrandom.rand(cq, (num_weights,), np.uint8, a=246, b=255)
+                vl.weights = cl.clrandom.rand(cq, (num_weights,), np.float32, a=0.99, b=1.0)
                 vl.reconstruction = cl.array.empty(cq, (num_visible_cells * vld.size[3],), np.float32)
 
                 self.vls.append(vl)
@@ -91,7 +91,7 @@ class Encoder:
                 area = diam * diam
                 num_weights = num_hidden_cells * area * vld.size[2] * vld.size[3]
 
-                vl.weights = cl.array.empty(cq, (num_weights,), np.uint8)
+                vl.weights = cl.array.empty(cq, (num_weights,), np.float32)
                 vl.reconstruction = cl.array.empty(cq, (num_visible_cells * vld.size[3],), np.float32)
 
                 read_into_buffer(fd, vl.weights)

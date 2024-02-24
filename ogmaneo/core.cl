@@ -37,7 +37,7 @@ __kernel void decoder_activate(
     __global const int* target_hidden_states,
     __global const float* dendrite_activations_prev,
     __global const float* hidden_activations_prev,
-    __global signed char* weights,
+    __global float* weights,
     __global float* dendrite_activations,
     __global float* hidden_activations,
     __global int* hidden_states,
@@ -119,7 +119,7 @@ __kernel void decoder_activate(
         for (int di = 0; di < num_dendrites_per_cell; di++) {
             int dendrite_index = di + dendrites_start;
 
-            int dendrite_delta = round(127.0f * hidden_delta * ((di >= half_num_dendrites_per_cell) * 2.0f - 1.0f) * ((dendrite_activations_prev[dendrite_index] > 0.0f) * (1.0f - leak) + leak));
+            float dendrite_delta = hidden_delta * ((di >= half_num_dendrites_per_cell) * 2.0f - 1.0f) * ((dendrite_activations_prev[dendrite_index] > 0.0f) * (1.0f - leak) + leak);
 
             for (int t = 0; t < visible_size.w; t++) {
                 int slice = (history_pos_prev + t) % visible_size.w;
@@ -137,7 +137,7 @@ __kernel void decoder_activate(
 
                         int wi = gc + hidden_size.z * (gt + hidden_size.w * (visible_state_prev + visible_size.z * (t + visible_size.w * (offset.y + diam * (offset.x + diam * (di + num_dendrites_per_cell * hidden_column_index))))));
 
-                        weights[wi] = min(127, max(-127, (int)weights[wi] + dendrite_delta));
+                        weights[wi] += dendrite_delta;
                     }
             }
         }
@@ -168,7 +168,7 @@ __kernel void decoder_activate(
                 }
         }
 
-        sum *= sqrt(1.0f / count) / 127.0f;
+        sum *= sqrt(1.0f / count);
 
         dendrite_activations[dendrite_index] += sum * importance;
     }
@@ -417,7 +417,7 @@ __kernel void encoder_learn(
             }
         }
 
-    sum /= max(1, count * 255);
+    sum /= max(1, count);
 
     int visible_cells_start = visible_size.z * (gt + visible_size.w * visible_column_index);
 
@@ -440,7 +440,7 @@ __kernel void encoder_learn(
     barrier(CLK_LOCAL_MEM_FENCE);
 
     if (num_higher >= early_stop_cells) {
-        int delta = round(255.0f * lr * ((gc == target_state) - exp(sum - 1.0f)));
+        float delta = lr * ((gc == target_state) - exp(sum - 1.0f));
 
         for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
             for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
@@ -461,7 +461,7 @@ __kernel void encoder_learn(
 
                     int wi = gc + visible_size.z * (gt + visible_size.w * (offset.y + diam * (offset.x + diam * (hidden_state + hidden_size.z * hidden_column_index))));
 
-                    weights[wi] = min(255, max(0, (int)weights[wi] + delta));
+                    weights[wi] += delta;
                 }
             }
     }
