@@ -36,7 +36,7 @@ class Decoder:
             num_dendrites = num_hidden_cells * num_dendrites_per_cell
 
             self.dendrite_activations = cl.array.zeros(cq, (num_dendrites * hidden_size[3],), np.float32)
-            self.dendrite_activations_prev = cl.array.zeros(cq, (num_dendrites * hidden_size[3],), np.float32)
+            self.dendrite_activations_prev = cl.array.empty(cq, (num_dendrites * hidden_size[3],), np.float32)
             self.hidden_activations = cl.array.zeros(cq, (num_hidden_cells * hidden_size[3],), np.float32)
             self.hidden_activations_prev = cl.array.empty(cq, (num_hidden_cells * hidden_size[3],), np.float32)
             self.hidden_states = cl.array.zeros(cq, (num_hidden_columns * hidden_size[3],), np.int32)
@@ -66,14 +66,14 @@ class Decoder:
 
         else: # Load
             self.hidden_size = struct.unpack("iiii", fd.read(4 * np.dtype(np.int32).itemsize))
-            self.num_dendrites_per_cell = struct.unpack("i", fd.read(np.dtype(np.int32).itemsize))
+            self.num_dendrites_per_cell = struct.unpack("i", fd.read(np.dtype(np.int32).itemsize))[0]
 
             num_hidden_columns = self.hidden_size[0] * self.hidden_size[1]
             num_hidden_cells = num_hidden_columns * self.hidden_size[2]
             num_dendrites = num_hidden_cells * self.num_dendrites_per_cell
 
             self.dendrite_activations = cl.array.empty(cq, (num_dendrites * hidden_size[3],), np.float32)
-            self.dendrite_activations_prev = cl.array.zeros(cq, (num_dendrites * hidden_size[3],), np.float32)
+            self.dendrite_activations_prev = cl.array.empty(cq, (num_dendrites * hidden_size[3],), np.float32)
             self.hidden_activations = cl.array.empty(cq, (num_hidden_cells * hidden_size[3],), np.float32)
             self.hidden_activations_prev = cl.array.empty(cq, (num_hidden_cells * hidden_size[3],), np.float32)
             self.hidden_states = cl.array.empty(cq, (num_hidden_columns * hidden_size[3],), np.int32)
