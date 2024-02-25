@@ -28,14 +28,14 @@ class Hierarchy:
     class IODesc:
         size: (int, int, int) = (4, 4, 16)
         t: IOType = IOType.PREDICTION
-        num_dendrites_per_cell: int = 4,
+        num_dendrites_per_cell: int = 4
         up_radius: int = 2
         down_radius: int = 2
 
     @dataclass
     class LayerDesc:
         hidden_size: (int, int, int) = (4, 4, 16)
-        num_dendrites_per_cell: int = 4,
+        num_dendrites_per_cell: int = 4
         up_radius: int = 2
         down_radius: int = 2
         ticks_per_update: int = 2
