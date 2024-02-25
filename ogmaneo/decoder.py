@@ -111,7 +111,7 @@ class Decoder:
                 self.vls.append(vl)
 
             # Parameters
-            self.lr, self.leak = struct.unpack("ff", 2 * fd.read(np.dtype(np.float32).itemsize))
+            self.lr, self.leak = struct.unpack("ff", fd.read(2 * np.dtype(np.float32).itemsize))
 
         # Kernels
         self.decoder_activate_kernel = prog.decoder_activate.clone()
