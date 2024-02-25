@@ -60,7 +60,7 @@ class Encoder:
             self.lr = 0.02
             self.early_stop_cells = 2
 
-        else: # Load from h5py group
+        else: # Load
             self.hidden_size = struct.unpack("iii", fd.read(3 * np.dtype(np.int32).itemsize))
             
             num_hidden_columns = self.hidden_size[0] * self.hidden_size[1]

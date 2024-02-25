@@ -64,7 +64,7 @@ class Decoder:
             self.lr = 0.05
             self.leak = 0.01
 
-        else: # Load from h5py group
+        else: # Load
             self.hidden_size = struct.unpack("iiii", fd.read(4 * np.dtype(np.int32).itemsize))
             self.num_dendrites_per_cell = struct.unpack("i", fd.read(np.dtype(np.int32).itemsize))
 
@@ -99,7 +99,7 @@ class Decoder:
 
                 diam = vld.radius * 2 + 1
                 area = diam * diam
-                num_weights = num_dendrites_per_cell * self.hidden_size[3] * area * vld.size[2] * vld.size[3]
+                num_weights = num_dendrites * self.hidden_size[3] * area * vld.size[2] * vld.size[3]
 
                 vl.weights = cl.array.empty(cq, (num_weights,), np.float32)
                 vl.visible_states_prev = cl.array.empty(cq, (num_visible_columns * vld.size[3],), np.int32)
