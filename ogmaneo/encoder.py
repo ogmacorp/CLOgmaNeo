@@ -99,7 +99,7 @@ class Encoder:
                 self.vls.append(vl)
 
             # Parameters
-            self.lr, self.early_stop_cells = struct.unpack("fi", fd.read(np.dtype(np.float32).itemsize + np.dtype(np.int32).itemsize))[0]
+            self.lr, self.early_stop_cells = struct.unpack("fi", fd.read(np.dtype(np.float32).itemsize + np.dtype(np.int32).itemsize))
 
         # Kernels
         self.encoder_activate_kernel = prog.encoder_activate.clone()
@@ -171,6 +171,3 @@ class Encoder:
             write_from_buffer(fd, vl.weights)
 
         fd.write(struct.pack("fi", self.lr, self.early_stop_cells))
-
-
-        
