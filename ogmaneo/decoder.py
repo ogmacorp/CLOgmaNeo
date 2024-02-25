@@ -72,11 +72,11 @@ class Decoder:
             num_hidden_cells = num_hidden_columns * self.hidden_size[2]
             num_dendrites = num_hidden_cells * self.num_dendrites_per_cell
 
-            self.dendrite_activations = cl.array.zeros(cq, (num_dendrites * hidden_size[3],), np.float32)
+            self.dendrite_activations = cl.array.empty(cq, (num_dendrites * hidden_size[3],), np.float32)
             self.dendrite_activations_prev = cl.array.zeros(cq, (num_dendrites * hidden_size[3],), np.float32)
-            self.hidden_activations = cl.array.zeros(cq, (num_hidden_cells * hidden_size[3],), np.float32)
+            self.hidden_activations = cl.array.empty(cq, (num_hidden_cells * hidden_size[3],), np.float32)
             self.hidden_activations_prev = cl.array.empty(cq, (num_hidden_cells * hidden_size[3],), np.float32)
-            self.hidden_states = cl.array.zeros(cq, (num_hidden_columns * hidden_size[3],), np.int32)
+            self.hidden_states = cl.array.empty(cq, (num_hidden_columns * hidden_size[3],), np.int32)
 
             read_into_buffer(fd, self.dendrite_activations)
             read_into_buffer(fd, self.hidden_activations)

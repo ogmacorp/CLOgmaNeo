@@ -123,7 +123,7 @@ class Hierarchy:
                 io_desc = self.IODesc()
 
                 io_desc.size = struct.unpack("iii", fd.read(3 * np.dtype(np.int32).itemsize))
-                io_desc.t, io_desc.up_radius, io_desc.down_radius = struct.unpack("iii", fd.read(3 * np.dtype(np.int32).itemsize))
+                io_desc.t, io_desc.num_dendrites_per_cell, io_desc.up_radius, io_desc.down_radius = struct.unpack("iiii", fd.read(4 * np.dtype(np.int32).itemsize))
 
                 self.io_descs.append(io_desc)
 
@@ -132,7 +132,7 @@ class Hierarchy:
                 ld = self.LayerDesc()
                 
                 ld.hidden_size = struct.unpack("iii", fd.read(3 * np.dtype(np.int32).itemsize))
-                ld.up_radius, ld.down_radius, ld.ticks_per_update, ld.temporal_horizon = struct.unpack("iiii", fd.read(4 * np.dtype(np.int32).itemsize))
+                ld.num_dendrites_per_cell, ld.up_radius, ld.down_radius, ld.ticks_per_update, ld.temporal_horizon = struct.unpack("iiiii", fd.read(5 * np.dtype(np.int32).itemsize))
 
                 self.lds.append(ld)
 
@@ -305,10 +305,10 @@ class Hierarchy:
         fd.write(struct.pack("ii", len(self.io_descs), len(self.lds)))
 
         for io_desc in self.io_descs:
-            fd.write(struct.pack("iiiiii", *io_desc.size, io_desc.t, io_desc.up_radius, io_desc.down_radius))
+            fd.write(struct.pack("iiiiiii", *io_desc.size, io_desc.t, io_desc.num_dendrites_per_cell, io_desc.up_radius, io_desc.down_radius))
 
         for ld in self.lds:
-            fd.write(struct.pack("iiiiiii", *ld.hidden_size, ld.up_radius, ld.down_radius, ld.ticks_per_update, ld.temporal_horizon))
+            fd.write(struct.pack("iiiiiiii", *ld.hidden_size, ld.num_dendrites_per_cell, ld.up_radius, ld.down_radius, ld.ticks_per_update, ld.temporal_horizon))
 
         for i in range(len(self.lds)):
             if i == 0:
