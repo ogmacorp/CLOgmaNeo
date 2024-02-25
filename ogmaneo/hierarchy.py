@@ -297,7 +297,7 @@ class Hierarchy:
 
             activations = np.divide(activations, np.repeat(totals, repeats=activations.shape[1], axis=1))
 
-        states = (activations.cumsum(1) > np.random.rand(activations.shape[0])[:,None]).argmax(1)
+        states = (activations.cumsum(1) > np.random.rand(activations.shape[0])[:, None]).argmax(1)
 
         return states.ravel()
 
