@@ -57,7 +57,7 @@ class Encoder:
                 self.vls.append(vl)
 
             # Hyperparameters
-            self.lr = 0.02
+            self.lr = 0.05
             self.early_stop_cells = 2
 
         else: # Load

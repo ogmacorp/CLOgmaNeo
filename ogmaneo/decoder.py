@@ -61,7 +61,7 @@ class Decoder:
                 self.vls.append(vl)
 
             # Parameters
-            self.lr = 0.05
+            self.lr = 0.2
             self.leak = 0.01
 
         else: # Load
