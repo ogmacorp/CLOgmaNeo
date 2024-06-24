@@ -54,7 +54,8 @@ __kernel void decoder_activate(
     float importance,
     uchar finish,
     float lr,
-    float leak
+    float leak,
+    float stability
 ) {
     __local int2 hidden_column_pos;
     __local int hidden_column_index;
@@ -113,7 +114,17 @@ __kernel void decoder_activate(
     int dendrites_start = num_dendrites_per_cell * hidden_cell_index;
 
     if (lr != 0.0f) {
-        float hidden_delta = lr * ((gc == target_state) - hidden_activations_prev[hidden_cell_index]);
+        float modulation = 0.0f;
+
+        for (int c = 0; c < hidden_size.z; c++) {
+            int hidden_cell_index_scan = c + hidden_cells_start;
+
+            modulation = max(modulation, hidden_activations_prev[hidden_cell_index_scan]);
+        }
+
+        modulation = pow(1.0f - modulation, stability);
+
+        float hidden_delta = lr * modulation * ((gc == target_state) - hidden_activations_prev[hidden_cell_index]);
 
         for (int di = 0; di < num_dendrites_per_cell; di++) {
             int dendrite_index = di + dendrites_start;
@@ -344,7 +355,7 @@ __kernel void encoder_learn(
     float2 v_to_h,
     int history_pos,
     float lr,
-    int early_stop_cells
+    float stability
 ) {
     __local int2 visible_column_pos;
     __local int visible_column_index;
@@ -360,7 +371,8 @@ __kernel void encoder_learn(
 
     __local int num_visible_columns;
 
-    __local int num_higher;
+    __local int max_index;
+    __local float modulation;
 
     // Pre-compute for work group
     if (get_local_id(2) == 0) {
@@ -424,21 +436,33 @@ __kernel void encoder_learn(
     barrier(CLK_GLOBAL_MEM_FENCE);
 
     if (get_local_id(2) == 0) {
-        num_higher = 0;
-        float target_recon = reconstruction[target_state + visible_cells_start];
+        max_index = 0;
+        float max_recon = -999999.0f;
 
         for (int c = 0; c < visible_size.z; c++) {
             float recon = reconstruction[c + visible_cells_start];
 
-            if (recon > target_recon)
-                num_higher++;
+            if (recon > max_recon) {
+                max_recon = recon;
+                max_index = c;
+            }
         }
+
+        modulation = 0.0f;
+
+        for (int c = 0; c < visible_size.z; c++) {
+            float recon = reconstruction[c + visible_cells_start];
+
+            modulation += recon * (c != max_index);
+        }
+
+        modulation = pow(modulation / (visible_size.z - 1), stability);
     }
 
     barrier(CLK_LOCAL_MEM_FENCE);
 
-    if (num_higher >= early_stop_cells) {
-        float delta = lr * ((gc == target_state) - exp(sum - 1.0f));
+    if (max_index != target_state) {
+        float delta = lr * modulation * ((gc == target_state) - exp(sum - 1.0f));
 
         for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
             for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
