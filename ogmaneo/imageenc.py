@@ -61,8 +61,8 @@ class ImageEnc:
 
             # Hyperparameters
             self.lr = 0.05
-            self.rr = 0.05
-            self.falloff = 8.0
+            self.rr = 0.1
+            self.falloff = 1.0
 
         else: # Load from h5py group
             self.hidden_size = struct.unpack("iii", fd.read(3 * np.dtype(np.int32).itemsize))
