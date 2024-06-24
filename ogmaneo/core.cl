@@ -431,13 +431,13 @@ __kernel void encoder_learn(
 
     int visible_cells_start = visible_size.z * (gt + visible_size.w * visible_column_index);
 
-    reconstruction[gc + visible_cells_start] = sum;
+    reconstruction[gc + visible_cells_start] = exp(min(0.0f, sum - 1.0f));
 
     barrier(CLK_GLOBAL_MEM_FENCE);
 
     if (get_local_id(2) == 0) {
         max_index = 0;
-        float max_recon = -999999.0f;
+        float max_recon = 0.0f;
 
         for (int c = 0; c < visible_size.z; c++) {
             float recon = reconstruction[c + visible_cells_start];
@@ -462,7 +462,7 @@ __kernel void encoder_learn(
     barrier(CLK_LOCAL_MEM_FENCE);
 
     if (max_index != target_state) {
-        float delta = lr * modulation * ((gc == target_state) - exp(sum - 1.0f));
+        float delta = lr * modulation * ((gc == target_state) - exp(min(0.0f, sum - 1.0f)));
 
         for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
             for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
