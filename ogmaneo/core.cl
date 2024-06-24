@@ -462,7 +462,7 @@ __kernel void encoder_learn(
     barrier(CLK_LOCAL_MEM_FENCE);
 
     if (max_index != target_state) {
-        float delta = lr * modulation * ((gc == target_state) - exp(min(0.0f, sum - 1.0f)));
+        float delta = lr * modulation * ((gc == target_state) - reconstruction[gc + visible_cells_start]);
 
         for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
             for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
