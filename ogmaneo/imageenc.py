@@ -26,7 +26,7 @@ class ImageEnc:
         protos: cl.array.Array
         reconstruction: cl.array.Array
 
-    def __init__(self, cq: cl.CommandQueue, prog: cl.Program, prog_extra: cl.Program, hidden_size: (int, int, int) = (4, 4, 16), vlds: [ VisibleLayerDesc ] = [], fd: io.IOBase = None):
+    def __init__(self, cq: cl.CommandQueue, prog: cl.Program, prog_extra: cl.Program, hidden_size: (int, int, int) = (4, 4, 16), vlds: [VisibleLayerDesc] = [], fd: io.IOBase = None):
         if fd is None:
             self.hidden_size = hidden_size
 
@@ -119,11 +119,11 @@ class ImageEnc:
         self.image_enc_learn_weights_cache = KernelArgCache(self.image_enc_learn_weights_kernel)
         self.image_enc_reconstruct_cache = KernelArgCache(self.image_enc_reconstruct_kernel)
 
-    def step(self, cq: cl.CommandQueue, visible_states: [ cl.array.Array ], learn_enabled: bool = True, learn_recon: bool = True):
+    def step(self, cq: cl.CommandQueue, visible_states: [cl.array.Array], learn_enabled: bool = True, learn_recon: bool = True):
         assert len(visible_states) == len(self.vls)
 
         # Pad 3-vecs to 4-vecs
-        vec_hidden_size = np.array(list(self.hidden_size) + [ 1 ], dtype=np.int32)
+        vec_hidden_size = np.array(list(self.hidden_size) + [1], dtype=np.int32)
 
         # Clear
         self.activations.fill(np.float32(0))
@@ -136,14 +136,14 @@ class ImageEnc:
             diam = vld.radius * 2 + 1
 
             # Pad 3-vecs to 4-vecs
-            vec_visible_size = np.array(list(vld.size) + [ 1 ], dtype=np.int32)
+            vec_visible_size = np.array(list(vld.size) + [1], dtype=np.int32)
 
             finish = bool(i == len(self.vls) - 1)
             lr = float(finish and learn_enabled) * self.lr
 
             self.image_enc_activate_cache.set_args(visible_states[i].data, vl.protos.data, self.activations.data, self.hidden_states.data, self.hidden_rates.data,
                     vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
-                    np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
+                    np.array([vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1]], dtype=np.float32),
                     np.uint8(finish), np.float32(lr), np.float32(self.falloff))
 
             cl.enqueue_nd_range_kernel(cq, self.image_enc_activate_kernel, self.hidden_size, (1, 1, self.hidden_size[2]))
@@ -156,25 +156,25 @@ class ImageEnc:
                 diam = vld.radius * 2 + 1
 
                 # Pad 3-vecs to 4-vecs
-                vec_visible_size = np.array(list(vld.size) + [ 1 ], dtype=np.int32)
+                vec_visible_size = np.array(list(vld.size) + [1], dtype=np.int32)
 
                 self.image_enc_learn_weights_cache.set_args(
                         visible_states[i].data, self.hidden_states.data, vl.weights.data, 
                         vec_visible_size, vec_hidden_size, np.int32(vld.radius),
-                        np.array([ math.ceil(diam * self.hidden_size[0] / vld.size[0] * 0.5), math.ceil(diam * self.hidden_size[1] / vld.size[1] * 0.5) ], np.int32),
+                        np.array([math.ceil(diam * self.hidden_size[0] / vld.size[0] * 0.5), math.ceil(diam * self.hidden_size[1] / vld.size[1] * 0.5)], np.int32),
                         np.int32(diam),
-                        np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
-                        np.array([ self.hidden_size[0] / vld.size[0], self.hidden_size[1] / vld.size[1] ], dtype=np.float32),
+                        np.array([vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1]], dtype=np.float32),
+                        np.array([self.hidden_size[0] / vld.size[0], self.hidden_size[1] / vld.size[1]], dtype=np.float32),
                         np.float32(self.rr))
 
             cl.enqueue_nd_range_kernel(cq, self.image_enc_learn_weights_kernel, vld.size, (1, 1, vld.size[2]))
 
-    def reconstruct(self, cq: cl.CommandQueue, hidden_states: cl.array.Array, indices: [ int ] = []):
+    def reconstruct(self, cq: cl.CommandQueue, hidden_states: cl.array.Array, indices: [int] = []):
         if len(indices) == 0: # Empty means all indices
-            indices = [ i for i in range(len(self.vls)) ]
+            indices = [i for i in range(len(self.vls))]
 
         # Pad 3-vecs to 4-vecs
-        vec_hidden_size = np.array(list(self.hidden_size) + [ 1 ], dtype=np.int32)
+        vec_hidden_size = np.array(list(self.hidden_size) + [1], dtype=np.int32)
 
         for i in indices:
             vld = self.vlds[i]
@@ -183,14 +183,14 @@ class ImageEnc:
             diam = vld.radius * 2 + 1
 
             # Pad 3-vecs to 4-vecs
-            vec_visible_size = np.array(list(vld.size) + [ 1 ], dtype=np.int32)
+            vec_visible_size = np.array(list(vld.size) + [1], dtype=np.int32)
 
             self.image_enc_reconstruct_cache.set_args(hidden_states.data, vl.weights.data, vl.reconstruction.data,
                     vec_visible_size, vec_hidden_size, np.int32(vld.radius),
-                    np.array([ math.ceil(diam * self.hidden_size[0] / vld.size[0] * 0.5), math.ceil(diam * self.hidden_size[1] / vld.size[1] * 0.5) ], np.int32),
+                    np.array([math.ceil(diam * self.hidden_size[0] / vld.size[0] * 0.5), math.ceil(diam * self.hidden_size[1] / vld.size[1] * 0.5)], np.int32),
                     np.int32(diam),
-                    np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
-                    np.array([ self.hidden_size[0] / vld.size[0], self.hidden_size[1] / vld.size[1] ], dtype=np.float32))
+                    np.array([vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1]], dtype=np.float32),
+                    np.array([self.hidden_size[0] / vld.size[0], self.hidden_size[1] / vld.size[1]], dtype=np.float32))
 
             cl.enqueue_nd_range_kernel(cq, self.image_enc_reconstruct_kernel, vld.size, (1, 1, vld.size[2]))
 

@@ -41,7 +41,7 @@ class Hierarchy:
         ticks_per_update: int = 2
         temporal_horizon: int = 2
 
-    def __init__(self, cq: cl.CommandQueue, prog: cl.Program, io_descs: [ IODesc ] = [], lds: [ LayerDesc ] = [], fd: io.IOBase = None):
+    def __init__(self, cq: cl.CommandQueue, prog: cl.Program, io_descs: [IODesc] = [], lds: [LayerDesc] = [], fd: io.IOBase = None):
         if fd is None:
             self.io_descs = io_descs
             self.lds = lds
@@ -49,7 +49,9 @@ class Hierarchy:
             self.encoders = []
             self.decoders = []
             self.histories = []
+            self.hidden_states_prev = []
             self.complete_states = []
+            self.complete_states_aux = []
 
             # Create layers
             for i in range(len(lds)):
@@ -71,7 +73,7 @@ class Hierarchy:
                         if io_descs[j].t == IOType.PREDICTION:
                             d_vld = Decoder.VisibleLayerDesc(size=(lds[i].hidden_size[0], lds[i].hidden_size[1], lds[i].hidden_size[2], 2 if i < len(lds) - 1 else 1), radius=io_descs[j].down_radius)
 
-                            io_decoders.append(Decoder(cq, prog, (io_descs[j].size[0], io_descs[j].size[1], io_descs[j].size[2], 1), io_descs[j].num_dendrites_per_cell, [ d_vld ]))
+                            io_decoders.append(Decoder(cq, prog, (io_descs[j].size[0], io_descs[j].size[1], io_descs[j].size[2], 1), io_descs[j].num_dendrites_per_cell, [d_vld]))
                         else:
                             io_decoders.append(None) # Mark no decoder
 
@@ -84,11 +86,11 @@ class Hierarchy:
 
                     io_history.append(cl.array.zeros(cq, (num_prev_columns * lds[i].temporal_horizon,), np.int32))
 
-                    e_vlds = [ Encoder.VisibleLayerDesc(size=(lds[i - 1].hidden_size[0], lds[i - 1].hidden_size[1], lds[i - 1].hidden_size[2], lds[i].temporal_horizon), radius=lds[i].up_radius, importance=1.0) ]
+                    e_vlds = [Encoder.VisibleLayerDesc(size=(lds[i - 1].hidden_size[0], lds[i - 1].hidden_size[1], lds[i - 1].hidden_size[2], lds[i].temporal_horizon), radius=lds[i].up_radius, importance=1.0)]
 
                     d_vld = Decoder.VisibleLayerDesc(size=(lds[i].hidden_size[0], lds[i].hidden_size[1], lds[i].hidden_size[2], 2 if i < len(lds) - 1 else 1), radius=lds[i].down_radius)
 
-                    temporal_decoders = [ Decoder(cq, prog, (lds[i - 1].hidden_size[0], lds[i - 1].hidden_size[1], lds[i - 1].hidden_size[2], lds[i].ticks_per_update), lds[i].num_dendrites_per_cell, [ d_vld ]) ]
+                    temporal_decoders = [Decoder(cq, prog, (lds[i - 1].hidden_size[0], lds[i - 1].hidden_size[1], lds[i - 1].hidden_size[2], lds[i].ticks_per_update), lds[i].num_dendrites_per_cell, [d_vld])]
 
                     self.decoders.append(temporal_decoders)
 
@@ -97,15 +99,19 @@ class Hierarchy:
                 self.histories.append(io_history)
 
                 if i < len(lds) - 1:
+                    self.hidden_states_prev.append(cl.array.empty(cq, (lds[i].hidden_size[0] * lds[i].hidden_size[1],), dtype=np.int32))
                     self.complete_states.append(cl.array.empty(cq, (lds[i].hidden_size[0] * lds[i].hidden_size[1] * 2,), dtype=np.int32))
+                    self.complete_states_aux.append(cl.array.empty(cq, (lds[i].hidden_size[0] * lds[i].hidden_size[1] * 2,), dtype=np.int32))
 
-            self.ticks = len(lds) * [ 0 ]
-            self.ticks_per_update = [ lds[i].ticks_per_update for i in range(len(lds)) ]
+            self.ticks = len(lds) * [0]
+            self.ticks_per_update = [lds[i].ticks_per_update for i in range(len(lds))]
             self.ticks_per_update[0] = 1 # First layer always 1
 
-            self.history_pos = len(lds) * [ 0 ]
+            self.history_pos = len(lds) * [0]
 
-            self.updates = len(lds) * [ False ]
+            self.updates = len(lds) * [False]
+
+            self.anticipation = True
 
         else: # Load
             num_io, num_layers = struct.unpack("ii", fd.read(2 * np.dtype(np.int32).itemsize))
@@ -116,7 +122,9 @@ class Hierarchy:
             self.encoders = []
             self.decoders = []
             self.histories = []
+            self.hidden_states_prev = []
             self.complete_states = []
+            self.complete_states_aux = []
 
             # IO descs
             for i in range(num_io):
@@ -166,7 +174,7 @@ class Hierarchy:
 
                     read_into_buffer(fd, io_history[-1])
 
-                    temporal_decoders = [ Decoder(cq, prog, fd=fd) ]
+                    temporal_decoders = [Decoder(cq, prog, fd=fd)]
 
                     self.decoders.append(temporal_decoders)
 
@@ -175,13 +183,17 @@ class Hierarchy:
                 self.histories.append(io_history)
 
                 if i < len(self.lds) - 1:
+                    self.hidden_states_prev.append(cl.array.empty(cq, (lds[i].hidden_size[0] * lds[i].hidden_size[1],), dtype=np.int32))
                     self.complete_states.append(cl.array.empty(cq, (self.lds[i].hidden_size[0] * self.lds[i].hidden_size[1] * 2,), dtype=np.int32))
+                    self.complete_states_aux.append(cl.array.empty(cq, (self.lds[i].hidden_size[0] * self.lds[i].hidden_size[1] * 2,), dtype=np.int32))
 
             self.ticks = read_array(fd, num_layers, np.int32).tolist()
             self.ticks_per_update = read_array(fd, num_layers, np.int32).tolist()
 
             self.history_pos = read_array(fd, num_layers, np.int32).tolist()
             self.updates = list(map(bool, read_array(fd, num_layers, np.uint8).tolist()))
+
+            self.anticipation = bool(struct.unpack("B", fd.read(np.dtype(np.uint8).itemsize)))
 
         self.assign_slice_kernels = []
         self.assign_slice_caches = []
@@ -196,7 +208,7 @@ class Hierarchy:
             self.assign_slice_caches.append(KernelArgCache(self.assign_slice_kernels[-1]))
             self.stack_slices_caches.append(KernelArgCache(self.stack_slices_kernels[-1]))
 
-    def step(self, cq: cl.CommandQueue, input_states: [ cl.array.Array ], learn_enabled: bool = True):
+    def step(self, cq: cl.CommandQueue, input_states: [cl.array.Array], learn_enabled: bool = True):
         # Push front
         self.history_pos[0] -= 1
 
@@ -219,6 +231,9 @@ class Hierarchy:
                 self.ticks[i] = 0
 
                 self.updates[i] = True
+
+                # Keep backup
+                cl.enqueue_copy(cq, self.hidden_states_prev[i].data, self.encoders[i].hidden_states.data)
 
                 self.encoders[i].step(cq, self.histories[i], self.history_pos[i], learn_enabled)
 
@@ -245,6 +260,7 @@ class Hierarchy:
             if self.updates[i]:
                 # Copy
                 decoder_visible_states = []
+                decoder_visible_states_aux = []
 
                 if i < len(self.lds) - 1:
                     i_next = i + 1
@@ -256,18 +272,25 @@ class Hierarchy:
 
                     cl.enqueue_nd_range_kernel(cq, self.stack_slices_kernels[i], (num_hidden_columns,), None)
 
-                    decoder_visible_states = [ self.complete_states[i] ]
+                    decoder_visible_states = [self.complete_states[i]]
+
+                    if self.anticipation:
+                        self.stack_slices_caches[i].set_args(self.encoders[i].hidden_states.data, self.hidden_states_prev.data, self.complete_states_aux[i].data, np.int32(num_hidden_columns), np.int32(0))
+
+                        cl.enqueue_nd_range_kernel(cq, self.stack_slices_kernels[i], (num_hidden_columns,), None)
+
+                        decoder_visible_states_aux = [self.complete_states_aux[i]]
                 else:
-                    decoder_visible_states = [ self.encoders[i].hidden_states ]
+                    decoder_visible_states = [self.encoders[i].hidden_states]
 
                 if i == 0:
                     for j in range(len(self.io_descs)):
                         if self.decoders[i][j] is None:
                             continue
 
-                        self.decoders[i][j].step(cq, decoder_visible_states, input_states[j], 0, 0, 0, 1, learn_enabled)
+                        self.decoders[i][j].step(cq, decoder_visible_states, decoder_visible_states_aux, input_states[j], 0, 0, 0, 1, learn_enabled)
                 else:
-                    self.decoders[i][0].step(cq, decoder_visible_states, self.histories[i][0], 0, 0, self.history_pos[i], self.lds[i].temporal_horizon, learn_enabled)
+                    self.decoders[i][0].step(cq, decoder_visible_states, decoder_visible_states_aux, self.histories[i][0], 0, 0, self.history_pos[i], self.lds[i].temporal_horizon, learn_enabled)
 
     def get_predicted_states(self, i: int) -> cl.array.Array:
         assert self.decoders[0][i] is not None
@@ -329,6 +352,8 @@ class Hierarchy:
         write_array(fd, np.array(self.ticks_per_update, dtype=np.int32))
         write_array(fd, np.array(self.history_pos, dtype=np.int32))
         write_array(fd, np.array(self.updates, dtype=np.uint8))
+
+        fd.write(struct.pack("B", self.anticipation))
 
     def set_input_importance(self, i: int, importance: float):
         self.encoders[0].vlds[i].importance = importance

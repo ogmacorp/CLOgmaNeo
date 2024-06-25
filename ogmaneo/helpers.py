@@ -30,8 +30,8 @@ class KernelArgCache:
 
         self.num_args = kernel.get_info(cl.kernel_info.NUM_ARGS)
 
-        self.args_prev = self.num_args * [ None ]
-        self.args = self.num_args * [ None ]
+        self.args_prev = self.num_args * [None]
+        self.args = self.num_args * [None]
 
     def set_args(self, *args):
         assert len(args) == self.num_args

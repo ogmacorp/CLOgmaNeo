@@ -27,7 +27,7 @@ class Encoder:
         weights: cl.array.Array
         reconstruction: cl.array.Array
 
-    def __init__(self, cq: cl.CommandQueue, prog: cl.Program, hidden_size: (int, int, int) = (4, 4, 16), vlds: [ VisibleLayerDesc ] = [], fd: io.IOBase = None):
+    def __init__(self, cq: cl.CommandQueue, prog: cl.Program, hidden_size: (int, int, int) = (4, 4, 16), vlds: [VisibleLayerDesc] = [], fd: io.IOBase = None):
         if fd is None:
             self.hidden_size = hidden_size
 
@@ -108,11 +108,11 @@ class Encoder:
         self.encoder_activate_cache = KernelArgCache(self.encoder_activate_kernel)
         self.encoder_learn_cache = KernelArgCache(self.encoder_learn_kernel)
 
-    def step(self, cq: cl.CommandQueue, visible_states: [ cl.array.Array ], history_pos: int, learn_enabled: bool = True):
+    def step(self, cq: cl.CommandQueue, visible_states: [cl.array.Array], history_pos: int, learn_enabled: bool = True):
         assert len(visible_states) == len(self.vls)
 
         # Pad 3-vecs to 4-vecs
-        vec_hidden_size = np.array(list(self.hidden_size) + [ 1 ], dtype=np.int32)
+        vec_hidden_size = np.array(list(self.hidden_size) + [1], dtype=np.int32)
 
         # Clear
         self.activations.fill(np.float32(0))
@@ -130,7 +130,7 @@ class Encoder:
 
             self.encoder_activate_cache.set_args(visible_states[i].data, vl.weights.data, self.activations.data, self.hidden_states.data,
                     vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
-                    np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
+                    np.array([vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1]], dtype=np.float32),
                     np.int32(history_pos), np.float32(vld.importance / len(self.vls)), np.uint8(finish))
 
             cl.enqueue_nd_range_kernel(cq, self.encoder_activate_kernel, self.hidden_size, (1, 1, self.hidden_size[2]))
@@ -146,10 +146,10 @@ class Encoder:
 
                 self.encoder_learn_cache.set_args(visible_states[i].data, self.hidden_states.data, vl.weights.data, vl.reconstruction.data,
                         vec_visible_size, vec_hidden_size, np.int32(vld.radius),
-                        np.array([ math.ceil(diam * self.hidden_size[0] / vld.size[0] * 0.5), math.ceil(diam * self.hidden_size[1] / vld.size[1] * 0.5) ], np.int32),
+                        np.array([math.ceil(diam * self.hidden_size[0] / vld.size[0] * 0.5), math.ceil(diam * self.hidden_size[1] / vld.size[1] * 0.5)], np.int32),
                         np.int32(diam),
-                        np.array([ vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1] ], dtype=np.float32),
-                        np.array([ self.hidden_size[0] / vld.size[0], self.hidden_size[1] / vld.size[1] ], dtype=np.float32),
+                        np.array([vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1]], dtype=np.float32),
+                        np.array([self.hidden_size[0] / vld.size[0], self.hidden_size[1] / vld.size[1]], dtype=np.float32),
                         np.int32(history_pos),
                         np.float32(self.lr), np.int32(self.stability))
 
