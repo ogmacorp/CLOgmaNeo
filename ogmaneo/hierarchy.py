@@ -232,8 +232,9 @@ class Hierarchy:
 
                 self.updates[i] = True
 
-                # Keep backup
-                cl.enqueue_copy(cq, self.hidden_states_prev[i].data, self.encoders[i].hidden_states.data)
+                # Keep backup for all but last layer
+                if i < len(self.lds) - 1:
+                    cl.enqueue_copy(cq, self.hidden_states_prev[i].data, self.encoders[i].hidden_states.data)
 
                 self.encoders[i].step(cq, self.histories[i], self.history_pos[i], learn_enabled)
 
@@ -275,7 +276,7 @@ class Hierarchy:
                     decoder_visible_states = [self.complete_states[i]]
 
                     if self.anticipation:
-                        self.stack_slices_caches[i].set_args(self.encoders[i].hidden_states.data, self.hidden_states_prev.data, self.complete_states_aux[i].data, np.int32(num_hidden_columns), np.int32(0))
+                        self.stack_slices_caches[i].set_args(self.encoders[i].hidden_states.data, self.hidden_states_prev[i].data, self.complete_states_aux[i].data, np.int32(num_hidden_columns), np.int32(0))
 
                         cl.enqueue_nd_range_kernel(cq, self.stack_slices_kernels[i], (num_hidden_columns,), None)
 

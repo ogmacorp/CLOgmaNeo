@@ -95,7 +95,7 @@ __kernel void decoder_activate(
 
         count = (iter_upper_bound.x - iter_lower_bound.x + 1) * (iter_upper_bound.y - iter_lower_bound.y + 1) * visible_size.w;
 
-        scale = sqrtf(1.0f / count);
+        scale = sqrt(1.0f / count);
 
         num_hidden_columns = hidden_size.x * hidden_size.y;
         num_visible_columns = visible_size.x * visible_size.y;
@@ -311,7 +311,7 @@ __kernel void decoder_activate_aux(
 
         count = (iter_upper_bound.x - iter_lower_bound.x + 1) * (iter_upper_bound.y - iter_lower_bound.y + 1) * visible_size.w;
 
-        scale = sqrtf(1.0f / count);
+        scale = sqrt(1.0f / count);
 
         num_hidden_columns = hidden_size.x * hidden_size.y;
         num_visible_columns = visible_size.x * visible_size.y;
