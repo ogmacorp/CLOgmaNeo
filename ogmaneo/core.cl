@@ -398,10 +398,10 @@ __kernel void decoder_activate_aux(
                     int visible_state_aux = visible_states_aux[visible_column_index + visible_columns_start];
 
                     int wi = gc + hidden_size.z * (gt + hidden_size.w * (visible_state + visible_size.z * (t + visible_size.w * (offset.y + diam * (offset.x + diam * (di + num_dendrites_per_cell * hidden_column_index))))));
-                    int wi_aux = gc + hidden_size.z * (gt + hidden_size.w * (visible_state + visible_size.z * (t + visible_size.w * (offset.y + diam * (offset.x + diam * (di + num_dendrites_per_cell * hidden_column_index))))));
+                    int wi_aux = gc + hidden_size.z * (gt + hidden_size.w * (visible_state_aux + visible_size.z * (t + visible_size.w * (offset.y + diam * (offset.x + diam * (di + num_dendrites_per_cell * hidden_column_index))))));
 
                     sum += weights[wi];
-                    sum_aux += weights[wi];
+                    sum_aux += weights[wi_aux];
                 }
         }
 
