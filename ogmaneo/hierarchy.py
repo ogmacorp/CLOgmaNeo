@@ -183,7 +183,7 @@ class Hierarchy:
                 self.histories.append(io_history)
 
                 if i < len(self.lds) - 1:
-                    self.hidden_states_prev.append(cl.array.empty(cq, (lds[i].hidden_size[0] * lds[i].hidden_size[1],), dtype=np.int32))
+                    self.hidden_states_prev.append(cl.array.empty(cq, (self.lds[i].hidden_size[0] * self.lds[i].hidden_size[1],), dtype=np.int32))
                     self.complete_states.append(cl.array.empty(cq, (self.lds[i].hidden_size[0] * self.lds[i].hidden_size[1] * 2,), dtype=np.int32))
                     self.complete_states_aux.append(cl.array.empty(cq, (self.lds[i].hidden_size[0] * self.lds[i].hidden_size[1] * 2,), dtype=np.int32))
 
