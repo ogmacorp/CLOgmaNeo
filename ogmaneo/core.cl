@@ -207,7 +207,7 @@ __kernel void decoder_activate(
 
         barrier(CLK_GLOBAL_MEM_FENCE);
 
-        if (gc == 0) {
+        if (get_local_id(2) == 0) {
             int max_index = 0;
             float max_activation = -999999.0f;
 
@@ -434,7 +434,7 @@ __kernel void decoder_activate_aux(
 
         barrier(CLK_GLOBAL_MEM_FENCE);
 
-        if (gc == 0) {
+        if (get_local_id(2) == 0) {
             int max_index = 0;
             float max_activation = -999999.0f;
             float max_activation_aux = -999999.0f;
