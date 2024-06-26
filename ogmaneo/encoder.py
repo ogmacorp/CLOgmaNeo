@@ -127,7 +127,6 @@ class Encoder:
             vec_visible_size = np.array(list(vld.size), dtype=np.int32)
             
             finish = bool(i == (len(self.vls) - 1))
-            print(visible_states[i].data.get())
 
             self.encoder_activate_cache.set_args(visible_states[i].data, vl.weights.data, self.activations.data, self.hidden_states.data,
                     vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
