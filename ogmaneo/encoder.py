@@ -57,7 +57,7 @@ class Encoder:
                 self.vls.append(vl)
 
             # Hyperparameters
-            self.lr = 0.1
+            self.lr = 0.01
             self.stability = 2.0
 
         else: # Load
