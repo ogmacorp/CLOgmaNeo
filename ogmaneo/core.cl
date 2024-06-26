@@ -556,6 +556,7 @@ __kernel void encoder_activate(
     __local int2 iter_upper_bound;
 
     __local int count;
+    __local float scale;
 
     __local int num_visible_columns;
 
@@ -574,6 +575,8 @@ __kernel void encoder_activate(
         iter_upper_bound = (int2)(min(visible_size.x - 1, visible_center.x + radius), min(visible_size.y - 1, visible_center.y + radius));
 
         count = (iter_upper_bound.x - iter_lower_bound.x + 1) * (iter_upper_bound.y - iter_lower_bound.y + 1) * visible_size.w;
+
+        scale = sqrt(1.0f / count);
 
         num_visible_columns = visible_size.x * visible_size.y;
     }
@@ -608,7 +611,7 @@ __kernel void encoder_activate(
             }
     }
 
-    sum *= sqrt(1.0f / count);
+    sum *= scale;
 
     activations[hidden_cell_index] += sum * importance;
 
@@ -719,11 +722,9 @@ __kernel void encoder_learn(
             }
         }
 
-    sum /= max(1, count);
-
     int visible_cells_start = visible_size.z * (gt + visible_size.w * visible_column_index);
 
-    reconstruction[gc + visible_cells_start] = exp(min(0.0f, sum - 1.0f));
+    reconstruction[gc + visible_cells_start] = exp(min(0.0f, (sum - count) * sqrt(1.0f / max(1, count))));
 
     barrier(CLK_GLOBAL_MEM_FENCE);
 
