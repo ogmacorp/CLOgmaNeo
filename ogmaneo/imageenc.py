@@ -61,7 +61,7 @@ class ImageEnc:
 
             # Hyperparameters
             self.lr = 0.05
-            self.rr = 0.1
+            self.rr = 0.05
             self.falloff = 1.0
 
         else: # Load from h5py group
