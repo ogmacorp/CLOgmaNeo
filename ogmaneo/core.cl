@@ -724,7 +724,7 @@ __kernel void encoder_learn(
 
     int visible_cells_start = visible_size.z * (gt + visible_size.w * visible_column_index);
 
-    reconstruction[gc + visible_cells_start] = exp(min(0.0f, (sum - count) * sqrt(1.0f / max(1, count))));
+    reconstruction[gc + visible_cells_start] = exp((sum - count) * sqrt(1.0f / max(1, count)));
 
     barrier(CLK_GLOBAL_MEM_FENCE);
 
@@ -776,7 +776,7 @@ __kernel void encoder_learn(
 
                     int wi = gc + visible_size.z * (gt + visible_size.w * (offset.y + diam * (offset.x + diam * (hidden_state + hidden_size.z * hidden_column_index))));
 
-                    weights[wi] += delta;
+                    weights[wi] = min(1.0f, weights[wi] + delta);
                 }
             }
     }
