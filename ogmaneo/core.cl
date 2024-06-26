@@ -484,10 +484,10 @@ __kernel void decoder_activate_aux(
             }
         }
 
-        barrier(CLK_GLOBAL_MEM_FENCE);
-
         // learn aux
         if (lr != 0.0f) {
+            barrier(CLK_GLOBAL_MEM_FENCE);
+
             float modulation = 0.0f;
 
             for (int c = 0; c < hidden_size.z; c++) {

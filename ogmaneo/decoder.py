@@ -136,6 +136,7 @@ class Decoder:
 
         # Clear
         self.dendrite_activations.fill(np.float32(0))
+        self.dendrite_activations_aux.fill(np.float32(0))
 
         # Accumulate for all visible layers
         for i in range(len(self.vls)):
