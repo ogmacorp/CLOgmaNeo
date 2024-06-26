@@ -151,7 +151,7 @@ class Encoder:
                         np.array([vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1]], dtype=np.float32),
                         np.array([self.hidden_size[0] / vld.size[0], self.hidden_size[1] / vld.size[1]], dtype=np.float32),
                         np.int32(history_pos),
-                        np.float32(self.lr), np.int32(self.stability))
+                        np.float32(self.lr), np.float32(self.stability))
 
                 cl.enqueue_nd_range_kernel(cq, self.encoder_learn_kernel, (vld.size[0], vld.size[1], vld.size[2] * vld.size[3]), (1, 1, vld.size[2]))
 
