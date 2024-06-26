@@ -80,8 +80,6 @@ class Hierarchy:
                     self.decoders.append(io_decoders)
 
                 else: # Higher layers
-                    temporal_history = []
-
                     num_prev_columns = lds[i - 1].hidden_size[0] * lds[i - 1].hidden_size[1]
 
                     io_history.append(cl.array.zeros(cq, (num_prev_columns * lds[i].temporal_horizon,), np.int32))
