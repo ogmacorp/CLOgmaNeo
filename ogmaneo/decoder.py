@@ -147,7 +147,7 @@ class Decoder:
 
             vec_visible_size = np.array(list(vld.size), dtype=np.int32)
 
-            finish = bool(i == len(self.vls) - 1)
+            finish = bool(i == (len(self.vls) - 1))
             lr = float(i == 0 and learn_enabled) * self.lr
 
             if len(visible_states_aux) == 0: # Regular kernel

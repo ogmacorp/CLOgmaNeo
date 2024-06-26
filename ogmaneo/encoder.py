@@ -51,13 +51,13 @@ class Encoder:
                 area = diam * diam
                 num_weights = num_hidden_cells * area * vld.size[2] * vld.size[3]
 
-                vl.weights = cl.clrandom.rand(cq, (num_weights,), np.float32, a=0.0, b=1.0)
+                vl.weights = cl.clrandom.rand(cq, (num_weights,), np.float32, a=0.99, b=1.0)
                 vl.reconstruction = cl.array.empty(cq, (num_visible_cells * vld.size[3],), np.float32)
 
                 self.vls.append(vl)
 
             # Hyperparameters
-            self.lr = 0.1
+            self.lr = 0.0
             self.stability = 2.0
 
         else: # Load
@@ -126,7 +126,7 @@ class Encoder:
 
             vec_visible_size = np.array(list(vld.size), dtype=np.int32)
             
-            finish = bool(i == len(self.vls) - 1)
+            finish = bool(i == (len(self.vls) - 1))
 
             self.encoder_activate_cache.set_args(visible_states[i].data, vl.weights.data, self.activations.data, self.hidden_states.data,
                     vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
