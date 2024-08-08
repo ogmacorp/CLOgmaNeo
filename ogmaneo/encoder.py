@@ -98,7 +98,7 @@ class Encoder:
                 self.vls.append(vl)
 
             # Parameters
-            self.lr = struct.unpack("f", fd.read(np.dtype(np.float32).itemsize))
+            self.lr = struct.unpack("f", fd.read(np.dtype(np.float32).itemsize))[0]
 
         # Kernels
         self.encoder_activate_kernel = prog.encoder_activate.clone()
