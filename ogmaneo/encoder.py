@@ -58,7 +58,6 @@ class Encoder:
 
             # Hyperparameters
             self.lr = 0.1
-            self.stability = 2.0
 
         else: # Load
             self.hidden_size = struct.unpack("iii", fd.read(3 * np.dtype(np.int32).itemsize))
@@ -99,7 +98,7 @@ class Encoder:
                 self.vls.append(vl)
 
             # Parameters
-            self.lr, self.stability = struct.unpack("ff", fd.read(np.dtype(np.float32).itemsize + np.dtype(np.float32).itemsize))
+            self.lr = struct.unpack("f", fd.read(np.dtype(np.float32).itemsize))
 
         # Kernels
         self.encoder_activate_kernel = prog.encoder_activate.clone()
@@ -151,7 +150,7 @@ class Encoder:
                         np.array([vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1]], dtype=np.float32),
                         np.array([self.hidden_size[0] / vld.size[0], self.hidden_size[1] / vld.size[1]], dtype=np.float32),
                         np.int32(history_pos),
-                        np.float32(self.lr), np.float32(self.stability))
+                        np.float32(self.lr))
 
                 cl.enqueue_nd_range_kernel(cq, self.encoder_learn_kernel, (vld.size[0], vld.size[1], vld.size[2] * vld.size[3]), (1, 1, vld.size[2]))
 
@@ -170,4 +169,4 @@ class Encoder:
 
             write_from_buffer(fd, vl.weights)
 
-        fd.write(struct.pack("ff", self.lr, self.stability))
+        fd.write(struct.pack("f", self.lr))

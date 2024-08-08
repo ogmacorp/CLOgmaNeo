@@ -60,9 +60,9 @@ class ImageEnc:
                 self.vls.append(vl)
 
             # Hyperparameters
-            self.lr = 0.05
+            self.lr = 0.01
             self.rr = 0.05
-            self.falloff = 1.0
+            self.falloff = 0.5
 
         else: # Load from h5py group
             self.hidden_size = struct.unpack("iii", fd.read(3 * np.dtype(np.int32).itemsize))
