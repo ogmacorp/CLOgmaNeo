@@ -532,7 +532,7 @@ __kernel void encoder_activate(
             sum += weights[wi];
         }
 
-    accums[hidden_cell_index] += sum * byte_inv * importance;
+    accums[hidden_cell_index] += importance * sum * byte_inv;
     counts_except[hidden_cell_index] += importance * count * (visible_size.z - 1);
     counts_all[hidden_cell_index] += importance * count * visible_size.z;
     weight_totals_all[hidden_cell_index] += importance * weight_totals[hidden_cell_index] * byte_inv;
@@ -551,13 +551,14 @@ __kernel void encoder_activate(
                 int hidden_cell_index = c + hidden_cells_start;
 
                 float accum = accums[hidden_cell_index];
-                float total = weight_totals[hidden_cell_index];
+                float total_all = weight_totals_all[hidden_cell_index];
                 float count_except = counts_except[hidden_cell_index];
 
-                float complemented = accum - total + count_except;
+                float complemented = accum - total_all + count_except;
                 float match = complemented / count_except; 
-                float activation = accum / (choice + counts_all[hidden_cell_index] - total);
+                float activation = accum / (choice + counts_all[hidden_cell_index] - total_all);
 
+                printf("A: %f M: %f\n", activation, match);
                 if ((!committed_flags[hidden_cell_index] || match >= vigilance) && activation > max_activation) {
                     max_activation = activation;
                     max_index = c;
