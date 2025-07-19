@@ -109,7 +109,7 @@ class Hierarchy:
                 io_desc = self.IODesc()
 
                 io_desc.size = struct.unpack("iii", fd.read(3 * np.dtype(np.int32).itemsize))
-                io_desc.num_dendrites_per_cell, io_desc.up_radius, io_desc.down_radius = struct.unpack("iii", fd.read(3 * np.dtype(np.int32).itemsize))
+                io_desc.t, io_desc.num_dendrites_per_cell, io_desc.up_radius, io_desc.down_radius = struct.unpack("iiii", fd.read(4 * np.dtype(np.int32).itemsize))
 
                 self.io_descs.append(io_desc)
 
@@ -118,14 +118,12 @@ class Hierarchy:
                 ld = self.LayerDesc()
                 
                 ld.hidden_size = struct.unpack("iii", fd.read(3 * np.dtype(np.int32).itemsize))
-                ld.num_dendrites_per_cell, ld.up_radius, ld.down_radius = struct.unpack("iii", fd.read(3 * np.dtype(np.int32).itemsize))
+                ld.num_dendrites_per_cell, ld.up_radius, ld.recurrent_radius, ld.down_radius = struct.unpack("iiii", fd.read(4 * np.dtype(np.int32).itemsize))
 
                 self.lds.append(ld)
 
             # Create layers
             for i in range(len(self.lds)):
-                io_history = []
-
                 if i == 0: # First layer
                     io_decoders = []
 
@@ -141,8 +139,6 @@ class Hierarchy:
                     self.decoders.append([Decoder(cq, prog, fd=fd)])
 
                 self.encoders.append(Encoder(cq, prog, fd=fd))
-
-                self.histories.append(io_history)
 
                 self.hidden_states_prev.append(cl.array.empty(cq, (self.lds[i].hidden_size[0] * self.lds[i].hidden_size[1],), dtype=np.int32))
 
@@ -196,7 +192,7 @@ class Hierarchy:
 
                     self.decoders[i][j].step(cq, decoder_visible_states, decoder_visible_states_aux, input_states[j], learn_enabled)
             else:
-                self.decoders[i][0].step(cq, decoder_visible_states, decoder_visible_states_aux, self.histories[i][0], learn_enabled)
+                self.decoders[i][0].step(cq, decoder_visible_states, decoder_visible_states_aux, self.encoders[i].hidden_states, learn_enabled)
 
     def get_predicted_states(self, i: int) -> cl.array.Array:
         assert self.decoders[0][i] is not None
@@ -237,28 +233,18 @@ class Hierarchy:
             fd.write(struct.pack("iiiiiii", *io_desc.size, io_desc.t, io_desc.num_dendrites_per_cell, io_desc.up_radius, io_desc.down_radius))
 
         for ld in self.lds:
-            fd.write(struct.pack("iiiiiiii", *ld.hidden_size, ld.num_dendrites_per_cell, ld.up_radius, ld.down_radius, ld.ticks_per_update, ld.temporal_horizon))
+            fd.write(struct.pack("iiiiiii", *ld.hidden_size, ld.num_dendrites_per_cell, ld.up_radius, ld.recurrent_radius, ld.down_radius))
 
         for i in range(len(self.lds)):
             if i == 0:
-                for j in range(len(self.histories[i])):
-                    write_from_buffer(fd, self.histories[i][j])
-
                 for j in range(len(self.decoders[i])):
                     if self.decoders[i][j] is not None:
                         self.decoders[i][j].write(fd)
             else:
-                write_from_buffer(fd, self.histories[i][0])
-
                 self.decoders[i][0].write(fd)
 
             self.encoders[i].write(fd)
             
-        write_array(fd, np.array(self.ticks, dtype=np.int32))
-        write_array(fd, np.array(self.ticks_per_update, dtype=np.int32))
-        write_array(fd, np.array(self.history_pos, dtype=np.int32))
-        write_array(fd, np.array(self.updates, dtype=np.uint8))
-
         fd.write(struct.pack("B", self.anticipation))
 
     def set_input_importance(self, i: int, importance: float):
