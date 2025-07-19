@@ -523,7 +523,7 @@ __kernel void encoder_activate(
 
             int2 offset = visible_column_pos - field_lower_bound;
 
-            int visible_state = visible_states[visible_column_index + visible_columns_start];
+            int visible_state = visible_states[visible_column_index];
 
             int wi = gc + hidden_size.z * (offset.y + diam * (offset.x + diam * (visible_state + visible_size.z * hidden_column_index)));
 
@@ -617,7 +617,7 @@ __kernel void encoder_learn(
             if (dcx == 0 && dcy == 0)
                 continue;
 
-            int2 other_column_pos = (int2)(column_pos.x + dcx, column_pos.y + dcy);
+            int2 other_column_pos = (int2)(hidden_column_pos.x + dcx, hidden_column_pos.y + dcy);
 
             if (other_column_pos.x >= 0 && other_column_pos.y >= 0 && other_column_pos.x < hidden_size.x && other_column_pos.y < hidden_size.y) {
                 int other_hidden_column_index = other_column_pos.y + hidden_size.y * other_column_pos.x;
@@ -631,7 +631,7 @@ __kernel void encoder_learn(
 
     float ratio = (float)(num_higher) / l_count;
 
-    if (ratio <= params.active_ratio) {
+    if (ratio <= active_ratio) {
         for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
             for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
                 int2 visible_column_pos = (int2)(ix, iy);
@@ -640,11 +640,11 @@ __kernel void encoder_learn(
 
                 int2 offset = visible_column_pos - field_lower_bound;
 
-                int visible_state = visible_states[visible_column_index + visible_columns_start];
+                int visible_state = visible_states[visible_column_index];
 
                 int wi = hidden_state + hidden_size.z * (offset.y + diam * (offset.x + diam * (visible_state + visible_size.z * hidden_column_index)));
 
-                weights[wi] = min(255, weights[wi] + ceil(lr * (255.0f - weights[wi])));
+                weights[wi] = min(255, weights[wi] + (int)ceil(lr * (255.0f - weights[wi])));
             }
     }
 }
