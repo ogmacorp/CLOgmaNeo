@@ -55,7 +55,7 @@ class Encoder:
                 area = diam * diam
                 num_weights = num_hidden_cells * area * vld.size[2]
 
-                vl.weights = cl.clrandom.rand(cq, (num_weights,), np.uint8, a=0, b=5)
+                vl.weights = cl.array.to_device(cq, np.random.randint(0, 5, size=num_weights, dtype=np.uint8))
 
                 self.vls.append(vl)
 
