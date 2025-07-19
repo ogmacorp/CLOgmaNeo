@@ -150,8 +150,6 @@ class Hierarchy:
     def step(self, cq: cl.CommandQueue, input_states: [cl.array.Array], learn_enabled: bool = True):
         # Up-pass
         for i in range(len(self.lds)):
-            self.updates[i] = False
-
             # Keep backup
             cl.enqueue_copy(cq, self.hidden_states_prev[i].data, self.encoders[i].hidden_states.data)
 

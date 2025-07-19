@@ -114,8 +114,8 @@ class Encoder:
             self.choice, self.vigilance, self.lr, self.active_ratio, self.l_radius = struct.unpack("ffffi", fd.read(4 * np.dtype(np.float32).itemsize + np.dtype(np.int32).itemsize))
 
         # Kernels
-        self.encoder_activate_kernel = prog.encoder_activate.clone()
-        self.encoder_learn_kernel = prog.encoder_learn.clone()
+        self.encoder_activate_kernel = prog.encoder_activate
+        self.encoder_learn_kernel = prog.encoder_learn
 
         self.encoder_activate_cache = KernelArgCache(self.encoder_activate_kernel)
         self.encoder_learn_cache = KernelArgCache(self.encoder_learn_kernel)

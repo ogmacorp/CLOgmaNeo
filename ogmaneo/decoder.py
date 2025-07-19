@@ -59,7 +59,7 @@ class Decoder:
 
                 vl.weights = cl.array.to_device(cq, np.random.randint(122, 132, size=num_weights, dtype=np.uint8))
 
-                vl.visible_states_prev = cl.array.zeros(cq, (num_visible_columns * vld.size[3],), np.int32)
+                vl.visible_states_prev = cl.array.zeros(cq, (num_visible_columns,), np.int32)
 
                 self.vls.append(vl)
 
@@ -119,8 +119,8 @@ class Decoder:
             self.scale, self.lr = struct.unpack("ff", fd.read(2 * np.dtype(np.float32).itemsize))
 
         # Kernels
-        self.decoder_activate_kernel = prog.decoder_activate.clone()
-        self.decoder_activate_aux_kernel = prog.decoder_activate_aux.clone()
+        self.decoder_activate_kernel = prog.decoder_activate
+        self.decoder_activate_aux_kernel = prog.decoder_activate_aux
 
         self.decoder_activate_cache = KernelArgCache(self.decoder_activate_kernel)
         self.decoder_activate_aux_cache = KernelArgCache(self.decoder_activate_aux_kernel)
