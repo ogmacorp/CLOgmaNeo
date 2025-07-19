@@ -154,7 +154,7 @@ class Hierarchy:
             cl.enqueue_copy(cq, self.hidden_states_prev[i].data, self.encoders[i].hidden_states.data)
 
             if i < len(self.lds) - 1:
-                cl.enqueue_copy(cq, self.feedback_states_prev[i].data, self.decoders[i + 1].hidden_states.data)
+                cl.enqueue_copy(cq, self.feedback_states_prev[i].data, self.decoders[i + 1][0].hidden_states.data)
 
             layer_inputs = []
 
