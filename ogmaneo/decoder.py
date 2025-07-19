@@ -158,7 +158,7 @@ class Decoder:
                         np.array([vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1]], dtype=np.float32),
                         np.float32(1.0 / len(self.vls)), np.uint8(finish), np.float32(self.scale), np.float32(lr))
 
-                cl.enqueue_nd_range_kernel(cq, self.decoder_activate_kernel, (self.hidden_size[0], self.hidden_size[1], self.hidden_size[2] * self.hidden_size[3]), (1, 1, self.hidden_size[2]))
+                cl.enqueue_nd_range_kernel(cq, self.decoder_activate_kernel, self.hidden_size, (1, 1, self.hidden_size[2]))
             else: # Aux kernel
                 self.decoder_activate_aux_cache.set_args(visible_states[i].data, vl.visible_states_prev.data, visible_states_aux[i].data, target_hidden_states.data,
                         self.dendrite_activations_prev.data, self.hidden_activations_prev.data, vl.weights.data,
