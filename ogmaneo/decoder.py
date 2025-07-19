@@ -65,7 +65,7 @@ class Decoder:
 
             # Parameters
             self.scale = 8.0
-            self.lr = 0.1
+            self.lr = 0.2
 
         else: # Load
             self.hidden_size = struct.unpack("iii", fd.read(3 * np.dtype(np.int32).itemsize))

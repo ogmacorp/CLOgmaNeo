@@ -151,7 +151,7 @@ __kernel void decoder_activate(
 
                 int wi = gc + hidden_size.z * (visible_state + visible_size.z * (offset.y + diam * (offset.x + diam * (di + num_dendrites_per_cell * hidden_column_index))));
 
-                sum += weights[wi];
+                sum += weights[wi] - 127;
             }
 
         dendrite_activations[dendrite_index] += sum * dendrite_scale * importance;
@@ -163,9 +163,7 @@ __kernel void decoder_activate(
         for (int di = 0; di < num_dendrites_per_cell; di++) {
             int dendrite_index = di + dendrites_start;
 
-            dendrite_activations[dendrite_index] = softplus(dendrite_activations[dendrite_index]);
-
-            activation += dendrite_activations[dendrite_index] * ((di >= half_num_dendrites_per_cell) * 2.0f - 1.0f);
+            activation += softplus(dendrite_activations[dendrite_index]) * ((di >= half_num_dendrites_per_cell) * 2.0f - 1.0f);
         }
         
         activation *= activation_scale;
@@ -340,8 +338,8 @@ __kernel void decoder_activate_aux(
                 int wi = gc + hidden_size.z * (visible_state + visible_size.z * (offset.y + diam * (offset.x + diam * (di + num_dendrites_per_cell * hidden_column_index))));
                 int wi_aux = gc + hidden_size.z * (visible_state_aux + visible_size.z * (offset.y + diam * (offset.x + diam * (di + num_dendrites_per_cell * hidden_column_index))));
 
-                sum += weights[wi];
-                sum_aux += weights[wi_aux];
+                sum += weights[wi] - 127;
+                sum_aux += weights[wi_aux] - 127;
             }
 
         dendrite_activations[dendrite_index] += sum * dendrite_scale * importance;
@@ -355,11 +353,8 @@ __kernel void decoder_activate_aux(
         for (int di = 0; di < num_dendrites_per_cell; di++) {
             int dendrite_index = di + dendrites_start;
 
-            dendrite_activations[dendrite_index] = softplus(dendrite_activations[dendrite_index]);
-            dendrite_activations_aux[dendrite_index] = softplus(dendrite_activations_aux[dendrite_index]);
-
-            activation += dendrite_activations[dendrite_index] * ((di >= half_num_dendrites_per_cell) * 2.0f - 1.0f);
-            activation_aux += dendrite_activations_aux[dendrite_index] * ((di >= half_num_dendrites_per_cell) * 2.0f - 1.0f);
+            activation += softplus(dendrite_activations[dendrite_index]) * ((di >= half_num_dendrites_per_cell) * 2.0f - 1.0f);
+            activation_aux += softplus(dendrite_activations_aux[dendrite_index]) * ((di >= half_num_dendrites_per_cell) * 2.0f - 1.0f);
         }
         
         activation *= activation_scale;
