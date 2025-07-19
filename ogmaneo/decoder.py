@@ -57,7 +57,8 @@ class Decoder:
                 area = diam * diam
                 num_weights = num_dendrites * area * vld.size[2]
 
-                vl.weights = cl.clrandom.rand(cq, (num_weights,), np.uint8, a=122, b=132)
+                vl.weights = cl.array.to_device(cq, np.random.randint(122, 132, size=num_weights, dtype=np.uint8))
+
                 vl.visible_states_prev = cl.array.zeros(cq, (num_visible_columns * vld.size[3],), np.int32)
 
                 self.vls.append(vl)
