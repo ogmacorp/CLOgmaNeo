@@ -617,10 +617,10 @@ __kernel void encoder_learn(
             if (dcx == 0 && dcy == 0)
                 continue;
 
-            int2 other_column_pos = (int2)(hidden_column_pos.x + dcx, hidden_column_pos.y + dcy);
+            int2 other_hidden_column_pos = (int2)(hidden_column_pos.x + dcx, hidden_column_pos.y + dcy);
 
-            if (other_column_pos.x >= 0 && other_column_pos.y >= 0 && other_column_pos.x < hidden_size.x && other_column_pos.y < hidden_size.y) {
-                int other_hidden_column_index = other_column_pos.y + hidden_size.y * other_column_pos.x;
+            if (other_hidden_column_pos.x >= 0 && other_hidden_column_pos.y >= 0 && other_hidden_column_pos.x < hidden_size.x && other_hidden_column_pos.y < hidden_size.y) {
+                int other_hidden_column_index = other_hidden_column_pos.y + hidden_size.y * other_hidden_column_pos.x;
 
                 if (comparisons[other_hidden_column_index] >= comparison)
                     num_higher++;

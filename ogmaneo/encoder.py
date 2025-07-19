@@ -163,7 +163,7 @@ class Encoder:
                         vl.weights.data, self.committed_flags.data, self.weight_totals.data,
                         vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
                         np.array([vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1]], dtype=np.float32),
-                        np.float32(self.lr), np.float32(self.active_ratio), np.int32(self.l_radius))
+                        np.float32(self.active_ratio), np.int32(self.l_radius), np.float32(self.lr))
 
                 cl.enqueue_nd_range_kernel(cq, self.encoder_learn_kernel, vld.size, (1, 1, vld.size[2]))
 
