@@ -8,29 +8,6 @@
 
 // --- Core SPH ---
 
-__kernel void assign_slice(
-    __global const int* src,
-    __global int* dst,
-    int dst_offset
-) {
-    int index = get_global_id(0);
-
-    dst[dst_offset + index] = src[index]; 
-}
-
-__kernel void stack_slices(
-    __global const int* src1,
-    __global const int* src2,
-    __global int* dst,
-    int stride,
-    int offset
-) {
-    int index = get_global_id(0);
-
-    dst[index] = src1[index]; 
-    dst[stride + index] = src2[offset + index]; 
-}
-
 __constant float softplus_limit = 4.0f;
 __constant float byte_inv = 1.0f / 255.0f;
 __constant float limit_max = 999999.0f;
