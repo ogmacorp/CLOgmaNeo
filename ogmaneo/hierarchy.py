@@ -82,7 +82,7 @@ class Hierarchy:
 
                 # Recurrence
                 if lds[i].recurrent_radius >= 0:
-                    e_vlds.append(Encoder.VisibleLayerDesc(size=lds[i].hidden_size, radius=lds[i].recurrent_radius, importance=0.8))
+                    e_vlds.append(Encoder.VisibleLayerDesc(size=lds[i].hidden_size, radius=lds[i].recurrent_radius, importance=0.5))
 
                 self.encoders.append(Encoder(cq, prog, lds[i].hidden_size, e_vlds))
 
