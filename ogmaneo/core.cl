@@ -639,6 +639,8 @@ __kernel void encoder_learn(
     float ratio = (float)(num_higher) / l_count;
 
     if (ratio <= active_ratio) {
+        int weight_total_delta = 0;
+
         for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
             for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
                 int2 visible_column_pos = (int2)(ix, iy);
@@ -651,7 +653,13 @@ __kernel void encoder_learn(
 
                 int wi = hidden_state + hidden_size.z * (offset.y + diam * (offset.x + diam * (visible_state + visible_size.z * hidden_column_index)));
 
+                unsigned char weight_old = weights[wi];
+
                 weights[wi] = min(255, weights[wi] + (int)ceil(lr * (255.0f - weights[wi])));
+
+                weight_total_delta += weights[wi] - weight_old;
             }
+
+        weight_totals[hidden_cell_index] += weight_total_delta;
     }
 }
