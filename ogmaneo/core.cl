@@ -558,8 +558,7 @@ __kernel void encoder_activate(
                 float match = complemented / count_except; 
                 float activation = accum / (choice + counts_all[hidden_cell_index] - total_all);
 
-                printf("A: %f M: %f\n", activation, match);
-                if ((!committed_flags[hidden_cell_index] || match >= vigilance) && activation > max_activation) {
+                if ((committed_flags[hidden_cell_index] == 0 || match >= vigilance) && activation > max_activation) {
                     max_activation = activation;
                     max_index = c;
                 }
