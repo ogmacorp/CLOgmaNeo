@@ -11,7 +11,7 @@
 __constant float softplus_limit = 4.0f;
 __constant float byte_inv = 1.0f / 255.0f;
 __constant float limit_max = 999999.0f;
-__constant float limit_min = 999999.0f;
+__constant float limit_min = -999999.0f;
 __constant float limit_small = 0.00001f;
 
 float softplus(
@@ -542,10 +542,10 @@ __kernel void encoder_activate(
 
         if (gc == 0) {
             int max_index = -1;
-            float max_activation = limit_min;
+            float max_activation = 0.0f;
 
             int max_complete_index = 0;
-            float max_complete_activation = limit_min;
+            float max_complete_activation = 0.0f;
 
             for (int c = 0; c < hidden_size.z; c++) {
                 int hidden_cell_index = c + hidden_cells_start;
@@ -558,7 +558,7 @@ __kernel void encoder_activate(
                 float match = complemented / count_except; 
                 float activation = accum / (choice + counts_all[hidden_cell_index] - total_all);
 
-                if ((committed_flags[hidden_cell_index] == 0 || match >= vigilance) && activation > max_activation) {
+                if ((!committed_flags[hidden_cell_index] || match >= vigilance) && activation > max_activation) {
                     max_activation = activation;
                     max_index = c;
                 }
