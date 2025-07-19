@@ -155,7 +155,7 @@ class Decoder:
                         self.dendrite_activations.data, self.hidden_activations.data, self.hidden_states.data,
                         vec_visible_size, vec_hidden_size, np.int32(self.num_dendrites_per_cell), np.int32(vld.radius), np.int32(diam),
                         np.array([vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1]], dtype=np.float32),
-                        np.int32(history_pos), np.int32(history_pos_prev), np.int32(target_pos), np.int32(target_temporal_horizon), np.float32(1.0 / len(self.vls)), np.uint8(finish), np.float32(self.scale), np.float32(lr))
+                        np.float32(1.0 / len(self.vls)), np.uint8(finish), np.float32(self.scale), np.float32(lr))
 
                 cl.enqueue_nd_range_kernel(cq, self.decoder_activate_kernel, (self.hidden_size[0], self.hidden_size[1], self.hidden_size[2] * self.hidden_size[3]), (1, 1, self.hidden_size[2]))
             else: # Aux kernel
@@ -164,7 +164,7 @@ class Decoder:
                         self.dendrite_activations.data, self.dendrite_activations_aux.data, self.hidden_activations.data, self.hidden_activations_aux.data, self.hidden_states.data,
                         vec_visible_size, vec_hidden_size, np.int32(self.num_dendrites_per_cell), np.int32(vld.radius), np.int32(diam),
                         np.array([vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1]], dtype=np.float32),
-                        np.int32(history_pos), np.int32(history_pos_prev), np.int32(target_pos), np.int32(target_temporal_horizon), np.float32(1.0 / len(self.vls)), np.uint8(finish), np.float32(self.scale), np.float32(lr))
+                        np.float32(1.0 / len(self.vls)), np.uint8(finish), np.float32(self.scale), np.float32(lr))
 
                 cl.enqueue_nd_range_kernel(cq, self.decoder_activate_aux_kernel, self.hidden_size, (1, 1, self.hidden_size[2]))
 

@@ -476,8 +476,8 @@ __kernel void decoder_activate_aux(
 __kernel void encoder_activate(
     __global const int* visible_states,
     __global const unsigned char* weights,
-    __global const unsigned char* committed_flags,
     __global const int* weight_totals,
+    __global const unsigned char* committed_flags,
     __global float* accums,
     __global float* divs,
     __global int* hidden_states,
@@ -489,7 +489,9 @@ __kernel void encoder_activate(
     int diam,
     float2 h_to_v,
     float importance,
-    uchar finish
+    uchar finish,
+    float choice,
+    float vigilance
 ) {
     __local int2 hidden_column_pos;
     __local int hidden_column_index;
