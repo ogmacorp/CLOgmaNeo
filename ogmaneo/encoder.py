@@ -25,7 +25,6 @@ class Encoder:
 
     class VisibleLayer:
         weights: cl.array.Array
-        reconstruction: cl.array.Array
 
     def __init__(self, cq: cl.CommandQueue, prog: cl.Program, hidden_size: (int, int, int) = (4, 4, 16), vlds: [VisibleLayerDesc] = [], fd: io.IOBase = None):
         if fd is None:
@@ -36,6 +35,7 @@ class Encoder:
 
             self.activations = cl.array.empty(cq, (num_hidden_cells,), np.float32)
             self.hidden_states = cl.array.zeros(cq, (num_hidden_columns,), np.int32)
+            self.hidden_totals = cl.array.zeros(cq, (num_hidden_cells,), np.int32)
 
             self.vlds = vlds
             self.vls = []
@@ -51,13 +51,16 @@ class Encoder:
                 area = diam * diam
                 num_weights = num_hidden_cells * area * vld.size[2] * vld.size[3]
 
-                vl.weights = cl.clrandom.rand(cq, (num_weights,), np.float32, a=0.99, b=1.0)
-                vl.reconstruction = cl.array.empty(cq, (num_visible_cells * vld.size[3],), np.float32)
+                vl.weights = cl.clrandom.rand(cq, (num_weights,), np.uint8, a=0, b=5)
 
                 self.vls.append(vl)
 
             # Hyperparameters
-            self.lr = 0.1
+            self.choice = 0.01
+            self.vigilance = 0.9
+            self.lr = 0.5
+            self.active_ratio = 0.1
+            self.l_radius = 2
 
         else: # Load
             self.hidden_size = struct.unpack("iii", fd.read(3 * np.dtype(np.int32).itemsize))
@@ -67,8 +70,10 @@ class Encoder:
 
             self.activations = cl.array.empty(cq, (num_hidden_cells,), np.float32)
             self.hidden_states = cl.array.empty(cq, (num_hidden_columns,), np.int32)
+            self.hidden_totals = cl.array.empty(cq, (num_hidden_cells,), np.int32)
 
             read_into_buffer(fd, self.hidden_states)
+            read_into_buffer(fd, self.hidden_totals)
             
             num_visible_layers = struct.unpack("i", fd.read(np.dtype(np.int32).itemsize))[0]
 
@@ -90,7 +95,6 @@ class Encoder:
                 num_weights = num_hidden_cells * area * vld.size[2] * vld.size[3]
 
                 vl.weights = cl.array.empty(cq, (num_weights,), np.float32)
-                vl.reconstruction = cl.array.empty(cq, (num_visible_cells * vld.size[3],), np.float32)
 
                 read_into_buffer(fd, vl.weights)
 
@@ -143,7 +147,7 @@ class Encoder:
 
                 vec_visible_size = np.array(list(vld.size), dtype=np.int32)
 
-                self.encoder_learn_cache.set_args(visible_states[i].data, self.hidden_states.data, vl.weights.data, vl.reconstruction.data,
+                self.encoder_learn_cache.set_args(visible_states[i].data, self.hidden_states.data, vl.weights.data,
                         vec_visible_size, vec_hidden_size, np.int32(vld.radius),
                         np.array([math.ceil(diam * self.hidden_size[0] / vld.size[0] * 0.5), math.ceil(diam * self.hidden_size[1] / vld.size[1] * 0.5)], np.int32),
                         np.int32(diam),
@@ -158,6 +162,7 @@ class Encoder:
         fd.write(struct.pack("iii", *self.hidden_size))
 
         write_from_buffer(fd, self.hidden_states)
+        write_from_buffer(fd, self.hidden_totals)
 
         fd.write(struct.pack("i", len(self.vlds)))
 
@@ -169,4 +174,4 @@ class Encoder:
 
             write_from_buffer(fd, vl.weights)
 
-        fd.write(struct.pack("f", self.lr))
+        fd.write(struct.pack("ffffi", self.choice, self.vigilance, self.lr, self.active_ratio, self.l_radius))
