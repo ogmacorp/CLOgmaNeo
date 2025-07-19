@@ -34,9 +34,10 @@ class Encoder:
             num_hidden_cells = num_hidden_columns * hidden_size[2]
 
             self.accums = cl.array.empty(cq, (num_hidden_cells,), np.float32)
-            self.divs = cl.array.empty(cq, (num_hidden_cells,), np.float32)
+            self.counts_except = cl.array.empty(cq, (num_hidden_cells,), np.float32)
+            self.counts_all = cl.array.empty(cq, (num_hidden_cells,), np.float32)
+            self.weight_totals_all = cl.array.empty(cq, (num_hidden_cells,), np.float32)
             self.hidden_states = cl.array.zeros(cq, (num_hidden_columns,), np.int32)
-            self.weight_totals = cl.array.zeros(cq, (num_hidden_cells,), np.int32)
             self.committed_flags = cl.array.zeros(cq, (num_hidden_cells,), np.uint8)
             self.learn_flags = cl.array.zeros(cq, (num_hidden_columns,), np.uint8)
             self.comparisons = cl.array.zeros(cq, (num_hidden_columns,), np.float32)
@@ -56,6 +57,7 @@ class Encoder:
                 num_weights = num_hidden_cells * area * vld.size[2]
 
                 vl.weights = cl.array.to_device(cq, np.random.randint(0, 5, size=num_weights, dtype=np.uint8))
+                vl.weight_totals = cl.array.zeros(cq, (num_hidden_cells,), np.int32)
 
                 self.vls.append(vl)
 
@@ -73,15 +75,15 @@ class Encoder:
             num_hidden_cells = num_hidden_columns * self.hidden_size[2]
 
             self.accums = cl.array.empty(cq, (num_hidden_cells,), np.float32)
-            self.divs = cl.array.empty(cq, (num_hidden_cells,), np.float32)
+            self.counts_except = cl.array.empty(cq, (num_hidden_cells,), np.float32)
+            self.counts_all = cl.array.empty(cq, (num_hidden_cells,), np.float32)
+            self.weight_totals_all = cl.array.empty(cq, (num_hidden_cells,), np.float32)
             self.hidden_states = cl.array.empty(cq, (num_hidden_columns,), np.int32)
-            self.weight_totals = cl.array.empty(cq, (num_hidden_cells,), np.int32)
             self.committed_flags = cl.array.empty(cq, (num_hidden_cells,), np.uint8)
             self.learn_flags = cl.array.empty(cq, (num_hidden_columns,), np.uint8)
             self.comparisons = cl.array.zeros(cq, (num_hidden_columns,), np.float32)
 
             read_into_buffer(fd, self.hidden_states)
-            read_into_buffer(fd, self.weight_totals)
             read_into_buffer(fd, self.committed_flags)
 
             num_visible_layers = struct.unpack("i", fd.read(np.dtype(np.int32).itemsize))[0]
@@ -104,8 +106,10 @@ class Encoder:
                 num_weights = num_hidden_cells * area * vld.size[2]
 
                 vl.weights = cl.array.empty(cq, (num_weights,), np.uint8)
+                vl.weight_totals = cl.array.empty(cq, (num_hidden_cells,), np.int32)
 
                 read_into_buffer(fd, vl.weights)
+                read_into_buffer(fd, vl.weight_totals)
 
                 self.vlds.append(vld)
                 self.vls.append(vl)
@@ -128,7 +132,9 @@ class Encoder:
 
         # Clear
         self.accums.fill(np.float32(0))
-        self.divs.fill(np.float32(0))
+        self.counts_except.fill(np.float32(0))
+        self.counts_all.fill(np.float32(0))
+        self.weight_totals_all.fill(np.float32(0))
 
         # Accumulate for all visible layers
         for i in range(len(self.vls)):
@@ -141,8 +147,9 @@ class Encoder:
             
             finish = bool(i == (len(self.vls) - 1))
 
-            self.encoder_activate_cache.set_args(visible_states[i].data, vl.weights.data, self.weight_totals.data, self.committed_flags.data,
-                    self.accums.data, self.divs.data, self.hidden_states.data, self.learn_flags.data, self.comparisons.data,
+            self.encoder_activate_cache.set_args(visible_states[i].data, vl.weights.data, vl.weight_totals.data, self.committed_flags.data,
+                    self.accums.data, self.counts_except.data, self.counts_all.data, self.weight_totals_all.data,
+                    self.hidden_states.data, self.learn_flags.data, self.comparisons.data,
                     vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
                     np.array([vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1]], dtype=np.float32),
                     np.float32(vld.importance), np.uint8(finish),
@@ -160,7 +167,7 @@ class Encoder:
                 vec_visible_size = np.array(list(vld.size) + [1], dtype=np.int32)
 
                 self.encoder_learn_cache.set_args(visible_states[i].data, self.hidden_states.data, self.learn_flags.data, self.comparisons.data,
-                        vl.weights.data, self.committed_flags.data, self.weight_totals.data,
+                        vl.weights.data, self.committed_flags.data, vl.weight_totals.data,
                         vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
                         np.array([vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1]], dtype=np.float32),
                         np.float32(self.active_ratio), np.int32(self.l_radius), np.float32(self.lr))

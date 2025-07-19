@@ -456,7 +456,9 @@ __kernel void encoder_activate(
     __global const int* weight_totals,
     __global const unsigned char* committed_flags,
     __global float* accums,
-    __global float* divs,
+    __global float* counts_except,
+    __global float* counts_all,
+    __global float* weight_totals_all,
     __global int* hidden_states,
     __global unsigned char* learn_flags,
     __global float* comparisons,
@@ -531,7 +533,9 @@ __kernel void encoder_activate(
         }
 
     accums[hidden_cell_index] += sum * byte_inv * importance;
-    divs[hidden_cell_index] += importance * count;
+    counts_except[hidden_cell_index] += importance * count * (visible_size.z - 1);
+    counts_all[hidden_cell_index] += importance * count * visible_size.z;
+    weight_totals_all[hidden_cell_index] += importance * weight_totals[hidden_cell_index] * byte_inv;
 
     if (finish) {
         barrier(CLK_GLOBAL_MEM_FENCE);
@@ -547,9 +551,12 @@ __kernel void encoder_activate(
                 int hidden_cell_index = c + hidden_cells_start;
 
                 float accum = accums[hidden_cell_index];
+                float total = weight_totals[hidden_cell_index];
+                float count_except = counts_except[hidden_cell_index];
 
-                float match = accum / divs[hidden_cell_index]; 
-                float activation = accum / (choice + weight_totals[hidden_cell_index] * byte_inv);
+                float complemented = accum - total + count_except;
+                float match = complemented / count_except; 
+                float activation = accum / (choice + counts_all[hidden_cell_index] - total);
 
                 if ((!committed_flags[hidden_cell_index] || match >= vigilance) && activation > max_activation) {
                     max_activation = activation;
