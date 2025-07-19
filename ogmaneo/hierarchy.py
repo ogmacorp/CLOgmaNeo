@@ -67,7 +67,7 @@ class Hierarchy:
                         if io_descs[j].t == IOType.PREDICTION:
                             d_vld = Decoder.VisibleLayerDesc(size=lds[i].hidden_size, radius=io_descs[j].down_radius)
 
-                            io_decoders.append(Decoder(cq, prog, io_descs[j].size, io_descs[j].num_dendrites_per_cell, (2 if i < len(lds) else 1) * [d_vld]))
+                            io_decoders.append(Decoder(cq, prog, io_descs[j].size, io_descs[j].num_dendrites_per_cell, (2 if i < len(lds) - 1 else 1) * [d_vld]))
                         else:
                             io_decoders.append(None) # Mark no decoder
 
@@ -78,11 +78,11 @@ class Hierarchy:
 
                     d_vld = Decoder.VisibleLayerDesc(size=lds[i].hidden_size, radius=lds[i].down_radius)
 
-                    self.decoders.append([Decoder(cq, prog, lds[i - 1].hidden_size, lds[i].num_dendrites_per_cell, (2 if i < len(lds) else 1) * [d_vld])])
+                    self.decoders.append([Decoder(cq, prog, lds[i - 1].hidden_size, lds[i].num_dendrites_per_cell, (2 if i < len(lds) - 1 else 1) * [d_vld])])
 
                 # Recurrence
                 if lds[i].recurrent_radius >= 0:
-                    e_vlds.append(Encoder.VisibleLayerDesc(size=lds[i].hidden_size, radius=lds[i].recurrent_radius, importance=0.5))
+                    e_vlds.append(Encoder.VisibleLayerDesc(size=lds[i].hidden_size, radius=lds[i].recurrent_radius, importance=0.8))
 
                 self.encoders.append(Encoder(cq, prog, lds[i].hidden_size, e_vlds))
 
