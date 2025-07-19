@@ -69,6 +69,7 @@ __kernel void decoder_activate(
     float2 h_to_v,
     float importance,
     uchar finish,
+    float scale,
     float lr
 ) {
     __local int2 hidden_column_pos;
@@ -84,7 +85,7 @@ __kernel void decoder_activate(
     __local int2 iter_upper_bound;
 
     __local int count;
-    __local float scale;
+    __local float dendrite_scale;
 
     __local int num_hidden_columns;
     __local int num_visible_columns;
@@ -109,14 +110,14 @@ __kernel void decoder_activate(
 
         count = (iter_upper_bound.x - iter_lower_bound.x + 1) * (iter_upper_bound.y - iter_lower_bound.y + 1);
 
-        scale = sqrt(1.0f / count) * byte_inv;
+        dendrite_scale = sqrt(1.0f / count) * byte_inv;
 
         num_hidden_columns = hidden_size.x * hidden_size.y;
         num_visible_columns = visible_size.x * visible_size.y;
 
         half_num_dendrites_per_cell = num_dendrites_per_cell / 2;
 
-        activation_scale = sqrt(1.0f / num_dendrites_per_cell);
+        activation_scale = sqrt(1.0f / num_dendrites_per_cell) * scale;
     }
 
     barrier(CLK_LOCAL_MEM_FENCE);
@@ -159,7 +160,7 @@ __kernel void decoder_activate(
     for (int di = 0; di < num_dendrites_per_cell; di++) {
         int dendrite_index = di + dendrites_start;
 
-        float sum = 0.0f;
+        int sum = 0;
 
         for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
             for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
@@ -176,9 +177,7 @@ __kernel void decoder_activate(
                 sum += weights[wi];
             }
 
-        sum *= scale;
-
-        dendrite_activations[dendrite_index] += sum * importance;
+        dendrite_activations[dendrite_index] += sum * dendrite_scale * importance;
     }
 
     if (finish) {
@@ -256,6 +255,7 @@ __kernel void decoder_activate_aux(
     float2 h_to_v,
     float importance,
     uchar finish,
+    float scale,
     float lr
 ) {
     __local int2 hidden_column_pos;
@@ -271,7 +271,7 @@ __kernel void decoder_activate_aux(
     __local int2 iter_upper_bound;
 
     __local int count;
-    __local float scale;
+    __local float dendrite_scale;
 
     __local int num_hidden_columns;
     __local int num_visible_columns;
@@ -296,14 +296,14 @@ __kernel void decoder_activate_aux(
 
         count = (iter_upper_bound.x - iter_lower_bound.x + 1) * (iter_upper_bound.y - iter_lower_bound.y + 1);
 
-        scale = sqrt(1.0f / count) * byte_inv;
+        dendrite_scale = sqrt(1.0f / count) * byte_inv;
 
         num_hidden_columns = hidden_size.x * hidden_size.y;
         num_visible_columns = visible_size.x * visible_size.y;
 
         half_num_dendrites_per_cell = num_dendrites_per_cell / 2;
 
-        activation_scale = sqrt(1.0f / num_dendrites_per_cell);
+        activation_scale = sqrt(1.0f / num_dendrites_per_cell) * scale;
     }
 
     barrier(CLK_LOCAL_MEM_FENCE);
@@ -346,8 +346,8 @@ __kernel void decoder_activate_aux(
     for (int di = 0; di < num_dendrites_per_cell; di++) {
         int dendrite_index = di + dendrites_start;
 
-        float sum = 0.0f;
-        float sum_aux = 0.0f;
+        int sum = 0;
+        int sum_aux = 0;
 
         for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
             for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
@@ -367,11 +367,8 @@ __kernel void decoder_activate_aux(
                 sum_aux += weights[wi_aux];
             }
 
-        sum *= scale;
-        sum_aux *= scale;
-
-        dendrite_activations[dendrite_index] += sum * importance;
-        dendrite_activations_aux[dendrite_index] += sum_aux * importance;
+        dendrite_activations[dendrite_index] += sum * dendrite_scale * importance;
+        dendrite_activations_aux[dendrite_index] += sum_aux * dendrite_scale * importance;
     }
 
     if (finish) {
