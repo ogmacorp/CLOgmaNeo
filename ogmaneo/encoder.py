@@ -141,7 +141,7 @@ class Encoder:
             
             finish = bool(i == (len(self.vls) - 1))
 
-            self.encoder_activate_cache.set_args(visible_states[i].data, vl.weights.data, self.weight_totals, self.committed_flags,
+            self.encoder_activate_cache.set_args(visible_states[i].data, vl.weights.data, self.weight_totals.data, self.committed_flags,
                     self.accums.data, self.divs.data, self.hidden_states.data, self.learn_flags.data, self.comparisons.data,
                     vec_visible_size, vec_hidden_size, np.int32(vld.radius), np.int32(diam),
                     np.array([vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1]], dtype=np.float32),
