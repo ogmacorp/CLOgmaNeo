@@ -142,7 +142,7 @@ __kernel void image_enc_activate(
 }
 
 __kernel void image_enc_learn_recons(
-    __global const float* visible_states,
+    __global const unsigned char* visible_states,
     __global const int* hidden_states,
     __global float* weights,
     int3 visible_size,
@@ -216,7 +216,7 @@ __kernel void image_enc_learn_recons(
 
     sum /= max(1, count);
 
-    float delta = rr * (visible_states[visible_cell_index] - sum);
+    float delta = rr * (visible_states[visible_cell_index] * byte_inv - sum);
 
     for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
         for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
@@ -245,7 +245,7 @@ __kernel void image_enc_learn_recons(
 __kernel void image_enc_reconstruct(
     __global const int* hidden_states,
     __global const float* weights,
-    __global float* reconstruction,
+    __global unsigned char* reconstruction,
     int3 visible_size,
     int3 hidden_size,
     int radius,
@@ -316,6 +316,6 @@ __kernel void image_enc_reconstruct(
 
     sum /= max(1, count);
 
-    reconstruction[visible_cell_index] = sum;
+    reconstruction[visible_cell_index] = (unsigned char)(clamp(sum, 0.0f, 1.0f) * 255.0f);
 }
 

@@ -59,7 +59,7 @@ class ImageEnc:
 
                 if self.recon_enabled:
                     vl.weights = cl.clrandom.rand(cq, (num_weights,), np.float32, a=0.0, b=1.0)
-                    vl.reconstruction = cl.array.zeros(cq, (num_visible_cells,), np.float32)
+                    vl.reconstruction = cl.array.zeros(cq, (num_visible_cells,), np.uint8)
 
                 self.vls.append(vl)
 
@@ -107,7 +107,7 @@ class ImageEnc:
 
                 if self.recon_enabled:
                     vl.weights = cl.array.empty(cq, (num_weights,), np.float32)
-                    vl.reconstruction = cl.array.empty(cq, (num_visible_cells,), np.float32)
+                    vl.reconstruction = cl.array.empty(cq, (num_visible_cells,), np.uint8)
 
                     read_into_buffer(fd, vl.weights)
                     read_into_buffer(fd, vl.reconstruction)
