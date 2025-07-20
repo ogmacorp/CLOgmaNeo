@@ -226,3 +226,6 @@ class ImageEnc:
                 write_from_buffer(fd, vl.reconstruction)
 
         fd.write(struct.pack("fffi", self.lr, self.rr, self.falloff, self.n_radius))
+
+    def clear_state(self):
+        self.hidden_states.fill(np.int32(0))
