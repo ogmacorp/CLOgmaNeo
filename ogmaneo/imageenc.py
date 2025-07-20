@@ -70,7 +70,8 @@ class ImageEnc:
             self.n_radius = 1
 
         else: # Load from h5py group
-            self.hidden_size, self.recon_enabled = struct.unpack("iiiB", fd.read(3 * np.dtype(np.int32).itemsize + np.dtype(np.uint8).itemsize))
+            self.hidden_size = struct.unpack("iii", fd.read(3 * np.dtype(np.int32).itemsize))
+            self.recon_enabled = bool(struct.unpack("B", fd.read(np.dtype(np.uint8).itemsize))[0])
             
             num_hidden_columns = self.hidden_size[0] * self.hidden_size[1]
             num_hidden_cells = num_hidden_columns * self.hidden_size[2]
