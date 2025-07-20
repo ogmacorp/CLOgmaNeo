@@ -170,9 +170,6 @@ class Hierarchy:
 
         # Down-pass
         for i in range(len(self.decoders) - 1, -1, -1):
-            decoder_visible_states = []
-            decoder_visible_states_aux = []
-
             if learn_enabled:
                 if i < len(self.lds) - 1:
                     i_next = i + 1
@@ -183,15 +180,17 @@ class Hierarchy:
                         if self.decoders[i][j] is None:
                             continue
 
-                        self.decoders[i][j].learn(cq, decoder_visible_states, input_states[j] if l == 0 else self.encoders[i - 1].hidden_states)
+                        self.decoders[i][j].learn(cq, decoder_visible_states, input_states[j] if i == 0 else self.encoders[i - 1].hidden_states)
 
                     if self.anticipation:
+                        decoder_visible_states = [self.encoders[i].hidden_states, self.hidden_states_prev[i]]
+
                         for j in range(len(self.decoders[i])):
                             if self.decoders[i][j] is None:
                                 continue
 
                             self.decoders[i][j].activate(cq, decoder_visible_states)
-                            self.decoders[i][j].learn(cq, decoder_visible_states, input_states[j] if l == 0 else self.encoders[i - 1].hidden_states)
+                            self.decoders[i][j].learn(cq, decoder_visible_states, input_states[j] if i == 0 else self.encoders[i - 1].hidden_states)
                 else:
                     decoder_visible_states = [self.hidden_states_prev[i]]
 
@@ -199,7 +198,14 @@ class Hierarchy:
                         if self.decoders[i][j] is None:
                             continue
 
-                        self.decoders[i][j].learn(cq, decoder_visible_states, input_states[j] if l == 0 else self.encoders[i - 1].hidden_states)
+                        self.decoders[i][j].learn(cq, decoder_visible_states, input_states[j] if i == 0 else self.encoders[i - 1].hidden_states)
+
+            decoder_visible_states = []
+
+            if i < len(self.lds) - 1:
+                decoder_visible_states = [self.decoders[i + 1].hidden_states, self.encoders[i].hidden_states]
+            else:
+                decoder_visible_states = [self.encoders[i].hidden_states]
 
             for j in range(len(self.decoders[i])):
                 if self.decoders[i][j] is None:

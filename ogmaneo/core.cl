@@ -96,8 +96,6 @@ __kernel void decoder_activate(
 
     int gc = get_global_id(2);
 
-    int target_state = target_hidden_states[hidden_column_index];
-
     int hidden_cells_start = hidden_size.z * hidden_column_index;
 
     int hidden_cell_index = gc + hidden_cells_start;
