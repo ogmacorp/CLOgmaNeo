@@ -142,7 +142,7 @@ class Hierarchy:
 
                 self.hidden_states_prev.append(cl.array.empty(cq, (self.lds[i].hidden_size[0] * self.lds[i].hidden_size[1],), dtype=np.int32))
 
-                if i < len(lds) - 1:
+                if i < len(self.lds) - 1:
                     self.feedback_states_prev.append(cl.array.empty(cq, (lds[i].hidden_size[0] * lds[i].hidden_size[1],), dtype=np.int32))
 
             self.anticipation = bool(struct.unpack("B", fd.read(np.dtype(np.uint8).itemsize)))
