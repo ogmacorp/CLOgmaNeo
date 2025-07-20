@@ -82,7 +82,7 @@ class Hierarchy:
 
                 # Recurrence
                 if lds[i].recurrent_radius >= 0:
-                    e_vlds.append(Encoder.VisibleLayerDesc(size=lds[i].hidden_size, radius=lds[i].recurrent_radius, importance=0.5))
+                    e_vlds.append(Encoder.VisibleLayerDesc(size=lds[i].hidden_size, radius=lds[i].recurrent_radius, importance=0.8))
 
                 self.encoders.append(Encoder(cq, prog, lds[i].hidden_size, e_vlds))
 
@@ -241,7 +241,7 @@ class Hierarchy:
 
             activations = np.divide(activations, np.repeat(totals, repeats=activations.shape[1], axis=1))
 
-        states = (activations.cumsum(1) > np.random.rand(activations.shape[0])[:, None]).argmax(1)
+        states = (activations.cumsum(1) > np.random.rand(activations.shape[0])[:, None]).argmax(1).astype(np.int32)
 
         return states.ravel()
 
