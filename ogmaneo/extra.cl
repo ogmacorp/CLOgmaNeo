@@ -41,7 +41,7 @@ __kernel void image_enc_activate(
     __local int2 iter_lower_bound;
     __local int2 iter_upper_bound;
 
-    __local int count;
+    __local float center;
 
     // Pre-compute for work group
     if (get_local_id(2) == 0) {
@@ -57,7 +57,25 @@ __kernel void image_enc_activate(
         iter_lower_bound = (int2)(max(0, field_lower_bound.x), max(0, field_lower_bound.y));
         iter_upper_bound = (int2)(min(visible_size.x - 1, visible_center.x + radius), min(visible_size.y - 1, visible_center.y + radius));
 
-        count = (iter_upper_bound.x - iter_lower_bound.x + 1) * (iter_upper_bound.y - iter_lower_bound.y + 1);
+        int count = (iter_upper_bound.x - iter_lower_bound.x + 1) * (iter_upper_bound.y - iter_lower_bound.y + 1) * visible_size.z;
+
+        center = 0.0f;
+
+        for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
+            for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
+                int2 visible_column_pos = (int2)(ix, iy);
+
+                int visible_column_index = iy + visible_size.y * ix;
+
+                int2 offset = visible_column_pos - field_lower_bound;
+
+                int visible_states_start = visible_size.z * visible_column_index;
+
+                for (int c = 0; c < visible_size.z; c++)
+                    center += visible_states[c + visible_states_start] * byte_inv;
+            }
+        
+        center /= count;
     }
 
     barrier(CLK_LOCAL_MEM_FENCE);
@@ -81,9 +99,11 @@ __kernel void image_enc_activate(
             for (int c = 0; c < visible_size.z; c++) {
                 int wi = gc + hidden_size.z * (c + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_column_index)));
 
-                float diff = visible_states[c + visible_states_start] * byte_inv - protos[wi] * byte_inv;
+                float centered_state = visible_states[c + visible_states_start] * byte_inv - center;
 
-                sum -= diff * diff;
+                float proto = protos[wi] * byte_inv * 2.0f - 1.0f;
+
+                sum += proto * centered_state;
             }
         }
 
@@ -131,7 +151,9 @@ __kernel void image_enc_activate(
                         for (int c = 0; c < visible_size.z; c++) {
                             int wi = gc + hidden_size.z * (c + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_column_index)));
 
-                            protos[wi] = clamp(protos[wi] + (int)round(strength * (visible_states[c + visible_states_start] - protos[wi])), 0, 255);
+                            float centered_state = visible_states[c + visible_states_start] * byte_inv - center;
+
+                            protos[wi] = clamp(protos[wi] + (int)round(strength * (centered_state - protos[wi] * byte_inv * 2.0f - 1.0f)), 0, 255);
                         }
                     }
 
