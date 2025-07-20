@@ -153,7 +153,9 @@ __kernel void image_enc_activate(
 
                             float centered_state = visible_states[c + visible_states_start] * byte_inv - center;
 
-                            protos[wi] = clamp(protos[wi] + (int)round(strength * (centered_state - protos[wi] * byte_inv * 2.0f - 1.0f)), 0, 255);
+                            float proto = protos[wi] * byte_inv * 2.0f - 1.0f;
+
+                            protos[wi] = clamp(protos[wi] + (int)round(strength * (centered_state - proto)), 0, 255);
                         }
                     }
 
