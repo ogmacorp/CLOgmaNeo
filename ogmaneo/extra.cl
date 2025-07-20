@@ -1,6 +1,6 @@
 // ----------------------------------------------------------------------------
 //  CLOgmaNeo
-//  Copyright(c) 2023 Ogma Intelligent Systems Corp. All rights reserved.
+//  Copyright(c) 2023-2025 Ogma Intelligent Systems Corp. All rights reserved.
 //
 //  This copy of CLOgmaNeo is licensed to you under the terms described
 //  in the CLOGMANEO_LICENSE.md file included in this distribution.
@@ -8,9 +8,14 @@
 
 // --- Image Encoder ---
 
+__constant float byte_inv = 1.0f / 255.0f;
+__constant float limit_max = 999999.0f;
+__constant float limit_min = -999999.0f;
+__constant float limit_small = 0.00001f;
+
 __kernel void image_enc_activate(
-    __global const float* visible_states,
-    __global float* protos,
+    __global const unsigned char* visible_states,
+    __global unsigned char* protos,
     __global float* activations,
     __global int* hidden_states,
     __global float* hidden_rates,
@@ -21,7 +26,8 @@ __kernel void image_enc_activate(
     float2 h_to_v,
     uchar finish,
     float lr,
-    float falloff
+    float falloff,
+    int n_radius
 ) {
     __local int2 hidden_column_pos;
     __local int hidden_column_index;
@@ -75,11 +81,9 @@ __kernel void image_enc_activate(
             for (int c = 0; c < visible_size.z; c++) {
                 int wi = gc + hidden_size.z * (c + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_column_index)));
 
-                float w = protos[wi];
+                float diff = visible_states[c + visible_states_start] * byte_inv - protos[wi] * byte_inv;
 
-                float delta = visible_states[c + visible_states_start] - protos[wi];
-
-                sum -= delta * delta;
+                sum -= diff * diff;
             }
         }
 
@@ -90,7 +94,7 @@ __kernel void image_enc_activate(
 
         if (gc == 0) {
             int max_index = 0;
-            float max_activation = -999999.0f;
+            float max_activation = limit_min;
 
             for (int c = 0; c < hidden_size.z; c++) {
                 float activation = activations[c + hidden_size.z * hidden_column_index];
@@ -102,56 +106,42 @@ __kernel void image_enc_activate(
             }
 
             hidden_states[hidden_column_index] = max_index;
-
-            float total_activation = 0.0f;
-
-            for (int c = 0; c < hidden_size.z; c++) {
-                int hidden_cell_index_scan = c + hidden_size.z * hidden_column_index;
-
-                activations[hidden_cell_index_scan] = exp(activations[hidden_cell_index_scan] - max_activation);
-
-                total_activation += activations[hidden_cell_index_scan];
-            }
-
-            float total_inv = 1.0f / max(0.0001f, total_activation);
-
-            for (int c = 0; c < hidden_size.z; c++) {
-                int hidden_cell_index_scan = c + hidden_size.z * hidden_column_index;
-
-                activations[hidden_cell_index_scan] *= total_inv;
-            }
         }
 
         barrier(CLK_GLOBAL_MEM_FENCE);
 
         if (lr != 0.0f) {
-            float diff = gc - hidden_states[hidden_column_index];
+            int dist = gc - hidden_states[hidden_column_index];
 
-            float strength = exp(-falloff * diff * diff / max(0.0001f, hidden_rates[hidden_cell_index])) * hidden_rates[hidden_cell_index];
+            int adist = abs(dist);
 
-            for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
-                for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
-                    int2 visible_column_pos = (int2)(ix, iy);
+            if (adist <= n_radius) {
+                float strength = pow(falloff, adist) * hidden_rates[hidden_cell_index];
 
-                    int visible_column_index = iy + visible_size.y * ix;
+                for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
+                    for (int iy = iter_lower_bound.y; iy <= iter_upper_bound.y; iy++) {
+                        int2 visible_column_pos = (int2)(ix, iy);
 
-                    int2 offset = visible_column_pos - field_lower_bound;
+                        int visible_column_index = iy + visible_size.y * ix;
 
-                    int visible_states_start = visible_size.z * visible_column_index;
+                        int2 offset = visible_column_pos - field_lower_bound;
 
-                    for (int c = 0; c < visible_size.z; c++) {
-                        int wi = gc + hidden_size.z * (c + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_column_index)));
+                        int visible_states_start = visible_size.z * visible_column_index;
 
-                        protos[wi] += strength * (visible_states[c + visible_states_start] - protos[wi]);
+                        for (int c = 0; c < visible_size.z; c++) {
+                            int wi = gc + hidden_size.z * (c + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_column_index)));
+
+                            protos[wi] = clamp(protos[wi] + round(strength * (visible_states[c + visible_states_start] - protos[wi]), 0, 255);
+                        }
                     }
-                }
 
-            hidden_rates[hidden_cell_index] -= lr * strength;
+                hidden_rates[hidden_cell_index] -= lr * strength;
+            }
         }
     }
 }
 
-__kernel void image_enc_learn_weights(
+__kernel void image_enc_learn_recons(
     __global const float* visible_states,
     __global const int* hidden_states,
     __global float* weights,
