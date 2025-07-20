@@ -203,7 +203,7 @@ class Hierarchy:
             decoder_visible_states = []
 
             if i < len(self.lds) - 1:
-                decoder_visible_states = [self.decoders[i + 1].hidden_states, self.encoders[i].hidden_states]
+                decoder_visible_states = [self.decoders[i + 1][0].hidden_states, self.encoders[i].hidden_states]
             else:
                 decoder_visible_states = [self.encoders[i].hidden_states]
 
