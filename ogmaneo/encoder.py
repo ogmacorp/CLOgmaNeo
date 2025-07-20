@@ -192,3 +192,6 @@ class Encoder:
             write_from_buffer(fd, vl.weight_totals)
 
         fd.write(struct.pack("ffffi", self.choice, self.vigilance, self.lr, self.active_ratio, self.l_radius))
+
+    def clear_state(self):
+        self.hidden_states.fill(np.int32(0))

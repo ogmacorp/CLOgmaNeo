@@ -281,3 +281,16 @@ class Hierarchy:
         assert self.lds[i].recurrent_radius >= 0
 
         return self.encoders[i].vlds[-1].importance
+
+    def clear_state(self):
+        for i in range(len(self.lds)):
+            self.encoders[i].clear_state()
+
+            for j in range(len(self.decoders[i])):
+                if self.decoders[i][j] is not None:
+                    self.decoders[i][j].clear_state()
+
+            self.hidden_states_prev[i].fill(np.int32(0))
+
+            if i < len(self.lds) - 1:
+                self.feedback_states_prev[i].fill(np.int32(0))

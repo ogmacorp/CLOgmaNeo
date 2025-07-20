@@ -179,3 +179,6 @@ class Decoder:
             write_from_buffer(fd, vl.weights)
 
         fd.write(struct.pack("ff", self.scale, self.lr))
+
+    def clear_state(self):
+        self.hidden_states.fill(np.int32(0))
