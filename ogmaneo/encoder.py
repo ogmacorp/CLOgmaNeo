@@ -65,7 +65,7 @@ class Encoder:
             self.choice = 0.01
             self.vigilance = 0.9
             self.lr = 0.5
-            self.active_ratio = 0.25
+            self.active_ratio = 0.1
             self.l_radius = 2
 
         else: # Load
