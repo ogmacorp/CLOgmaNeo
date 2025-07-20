@@ -27,7 +27,7 @@ class ImageEnc:
         weights: cl.array.Array
         reconstruction: cl.array.Array
 
-    def __init__(self, cq: cl.CommandQueue, prog_extra: cl.Program, hidden_size: (int, int, int) = (5, 5, 16), vlds: [VisibleLayerDesc] = [], recon_enabled = False, fd: io.IOBase = None):
+    def __init__(self, cq: cl.CommandQueue, prog_extra: cl.Program, hidden_size: (int, int, int) = (5, 5, 16), vlds: [VisibleLayerDesc] = [], recon_enabled: bool = False, fd: io.IOBase = None):
         if fd is None:
             self.hidden_size = hidden_size
             self.recon_enabled = recon_enabled
