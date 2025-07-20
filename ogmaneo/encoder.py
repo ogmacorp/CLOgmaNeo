@@ -178,7 +178,6 @@ class Encoder:
         fd.write(struct.pack("iii", *self.hidden_size))
 
         write_from_buffer(fd, self.hidden_states)
-        write_from_buffer(fd, self.hidden_totals)
         write_from_buffer(fd, self.committed_flags)
 
         fd.write(struct.pack("i", len(self.vlds)))
@@ -190,5 +189,6 @@ class Encoder:
             fd.write(struct.pack("iiiif", *vld.size, vld.radius, vld.importance))
 
             write_from_buffer(fd, vl.weights)
+            write_from_buffer(fd, vl.weight_totals)
 
         fd.write(struct.pack("ffffi", self.choice, self.vigilance, self.lr, self.active_ratio, self.l_radius))
