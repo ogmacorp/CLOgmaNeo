@@ -192,6 +192,12 @@ class Hierarchy:
             else:
                 self.decoders[i][0].step(cq, decoder_visible_states, decoder_visible_states_aux, self.encoders[i].hidden_states, learn_enabled)
 
+            for j in range(len(self.decoders[i])):
+                if self.decoders[i][j] is None:
+                    continue
+
+                self.decoders[i][j].activate(cq, decoder_visible_states)
+
     def get_predicted_states(self, i: int) -> cl.array.Array:
         assert self.decoders[0][i] is not None
 
