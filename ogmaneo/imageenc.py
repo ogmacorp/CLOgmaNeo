@@ -120,11 +120,11 @@ class ImageEnc:
 
         # Kernels
         self.image_enc_activate_kernel = prog_extra.image_enc_activate.clone()
-        self.image_enc_learn_weights_kernel = prog_extra.image_enc_learn_weights.clone()
+        self.image_enc_learn_recons_kernel = prog_extra.image_enc_learn_recons.clone()
         self.image_enc_reconstruct_kernel = prog_extra.image_enc_reconstruct.clone()
         
         self.image_enc_activate_cache = KernelArgCache(self.image_enc_activate_kernel)
-        self.image_enc_learn_weights_cache = KernelArgCache(self.image_enc_learn_weights_kernel)
+        self.image_enc_learn_recons_cache = KernelArgCache(self.image_enc_learn_recons_kernel)
         self.image_enc_reconstruct_cache = KernelArgCache(self.image_enc_reconstruct_kernel)
 
     def step(self, cq: cl.CommandQueue, visible_states: [cl.array.Array], learn_enabled: bool = True, learn_recon: bool = True):
@@ -166,7 +166,7 @@ class ImageEnc:
                 # Pad 3-vecs to 4-vecs
                 vec_visible_size = np.array(list(vld.size) + [1], dtype=np.int32)
 
-                self.image_enc_learn_weights_cache.set_args(
+                self.image_enc_learn_recons_cache.set_args(
                         visible_states[i].data, self.hidden_states.data, vl.weights.data, 
                         vec_visible_size, vec_hidden_size, np.int32(vld.radius),
                         np.array([math.ceil(diam * self.hidden_size[0] / vld.size[0] * 0.5), math.ceil(diam * self.hidden_size[1] / vld.size[1] * 0.5)], np.int32),
@@ -175,7 +175,7 @@ class ImageEnc:
                         np.array([self.hidden_size[0] / vld.size[0], self.hidden_size[1] / vld.size[1]], dtype=np.float32),
                         np.float32(self.rr))
 
-            cl.enqueue_nd_range_kernel(cq, self.image_enc_learn_weights_kernel, vld.size, (1, 1, vld.size[2]))
+            cl.enqueue_nd_range_kernel(cq, self.image_enc_learn_recons_kernel, vld.size, (1, 1, vld.size[2]))
 
     def reconstruct(self, cq: cl.CommandQueue, hidden_states: cl.array.Array, indices: [int] = []):
         assert self.recon_enabled

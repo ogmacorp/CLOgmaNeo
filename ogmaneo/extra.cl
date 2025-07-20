@@ -131,7 +131,7 @@ __kernel void image_enc_activate(
                         for (int c = 0; c < visible_size.z; c++) {
                             int wi = gc + hidden_size.z * (c + visible_size.z * (offset.y + diam * (offset.x + diam * hidden_column_index)));
 
-                            protos[wi] = clamp(protos[wi] + round(strength * (visible_states[c + visible_states_start] - protos[wi]), 0, 255);
+                            protos[wi] = clamp(protos[wi] + (int)round(strength * (visible_states[c + visible_states_start] - protos[wi])), 0, 255);
                         }
                     }
 
