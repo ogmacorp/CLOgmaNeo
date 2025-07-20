@@ -271,3 +271,13 @@ class Hierarchy:
 
     def get_input_importance(self, i: int):
         return self.encoders[0].vlds[i].importance
+
+    def set_recurrent_importance(self, i: int, importance: float):
+        assert self.lds[i].recurrent_radius >= 0
+
+        self.encoders[i].vlds[-1].importance = importance
+
+    def get_recurrent_importance(self, i: int):
+        assert self.lds[i].recurrent_radius >= 0
+
+        return self.encoders[i].vlds[-1].importance
