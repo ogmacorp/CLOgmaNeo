@@ -65,7 +65,7 @@ class ImageEnc:
 
             # Hyperparameters
             self.lr = 0.1
-            self.rr = 0.1
+            self.rr = 0.05
             self.falloff = 0.9
             self.n_radius = 1
 
