@@ -155,7 +155,10 @@ class Encoder:
                     np.float32(vld.importance), np.uint8(finish),
                     np.float32(self.choice), np.float32(self.vigilance))
 
-            cl.enqueue_nd_range_kernel(cq, self.encoder_activate_kernel, self.hidden_size, (1, 1, self.hidden_size[2]))
+            num_workgroups = self.hidden_size[2] // MAX_WORKGROUP_Z
+            workgroup_size = self.hidden_size[2] // max(1, num_workgroups)
+
+            cl.enqueue_nd_range_kernel(cq, self.encoder_activate_kernel, self.hidden_size, (1, 1, workgroup_size))
 
         if learn_enabled:
             for i in range(len(self.vls)):
@@ -172,7 +175,7 @@ class Encoder:
                         np.array([vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1]], dtype=np.float32),
                         np.float32(self.active_ratio), np.int32(self.l_radius), np.float32(self.lr))
 
-                cl.enqueue_nd_range_kernel(cq, self.encoder_learn_kernel, vld.size, (1, 1, vld.size[2]))
+                cl.enqueue_nd_range_kernel(cq, self.encoder_learn_kernel, (self.hidden_size[0], self.hidden_size[1]))
 
     def write(self, fd: io.IOBase):
         fd.write(struct.pack("iii", *self.hidden_size))

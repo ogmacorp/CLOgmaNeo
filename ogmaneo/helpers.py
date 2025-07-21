@@ -11,6 +11,8 @@ import io
 import pyopencl as cl
 import pyopencl.array
 
+MAX_WORKGROUP_Z = 64
+
 # Serialization/deserialization
 def read_array(fd: io.IOBase, count: int, dtype: np.dtype):
     return np.frombuffer(fd.read(count * np.dtype(dtype).itemsize), dtype)

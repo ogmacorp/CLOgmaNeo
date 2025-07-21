@@ -137,7 +137,10 @@ class Decoder:
                     np.array([vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1]], dtype=np.float32),
                     np.float32(1.0 / len(self.vls)), np.uint8(finish), np.float32(self.scale))
 
-            cl.enqueue_nd_range_kernel(cq, self.decoder_activate_kernel, self.hidden_size, (1, 1, self.hidden_size[2]))
+            num_workgroups = self.hidden_size[2] // MAX_WORKGROUP_Z
+            workgroup_size = self.hidden_size[2] // max(1, num_workgroups)
+
+            cl.enqueue_nd_range_kernel(cq, self.decoder_activate_kernel, self.hidden_size, (1, 1, workgroup_size))
 
     def learn(self, cq: cl.CommandQueue, visible_states: [cl.array.Array], target_hidden_states: cl.array.Array):
         assert len(visible_states) == len(self.vls)
@@ -158,7 +161,10 @@ class Decoder:
                     np.array([vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1]], dtype=np.float32),
                     np.float32(self.lr))
 
-            cl.enqueue_nd_range_kernel(cq, self.decoder_learn_kernel, self.hidden_size, (1, 1, self.hidden_size[2]))
+            num_workgroups = self.hidden_size[2] // MAX_WORKGROUP_Z
+            workgroup_size = self.hidden_size[2] // max(1, num_workgroups)
+
+            cl.enqueue_nd_range_kernel(cq, self.decoder_learn_kernel, self.hidden_size, (1, 1, workgroup_size))
 
     def write(self, fd: io.IOBase):
         fd.write(struct.pack("iii", *self.hidden_size))

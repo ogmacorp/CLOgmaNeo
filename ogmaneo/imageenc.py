@@ -155,7 +155,10 @@ class ImageEnc:
                     np.array([vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1]], dtype=np.float32),
                     np.uint8(finish), np.float32(lr), np.float32(self.falloff), np.int32(self.n_radius))
 
-            cl.enqueue_nd_range_kernel(cq, self.image_enc_activate_kernel, self.hidden_size, (1, 1, self.hidden_size[2]))
+            num_workgroups = self.hidden_size[2] // MAX_WORKGROUP_Z
+            workgroup_size = self.hidden_size[2] // max(1, num_workgroups)
+
+            cl.enqueue_nd_range_kernel(cq, self.image_enc_activate_kernel, self.hidden_size, (1, 1, num_workgroups))
 
         if self.recon_enabled and learn_enabled and learn_recon:
             for i in range(len(self.vls)):
@@ -176,7 +179,10 @@ class ImageEnc:
                         np.array([self.hidden_size[0] / vld.size[0], self.hidden_size[1] / vld.size[1]], dtype=np.float32),
                         np.float32(self.rr))
 
-            cl.enqueue_nd_range_kernel(cq, self.image_enc_learn_recons_kernel, vld.size, (1, 1, vld.size[2]))
+            num_workgroups = vld.size[2] // MAX_WORKGROUP_Z
+            workgroup_size = vld.size[2] // max(1, num_workgroups)
+
+            cl.enqueue_nd_range_kernel(cq, self.image_enc_learn_recons_kernel, vld.size, (1, 1, workgroup_size))
 
     def reconstruct(self, cq: cl.CommandQueue, hidden_states: cl.array.Array, indices: [int] = []):
         assert self.recon_enabled
@@ -203,7 +209,10 @@ class ImageEnc:
                     np.array([vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1]], dtype=np.float32),
                     np.array([self.hidden_size[0] / vld.size[0], self.hidden_size[1] / vld.size[1]], dtype=np.float32))
 
-            cl.enqueue_nd_range_kernel(cq, self.image_enc_reconstruct_kernel, vld.size, (1, 1, vld.size[2]))
+            num_workgroups = vld.size[2] // MAX_WORKGROUP_Z
+            workgroup_size = vld.size[2] // max(1, num_workgroups)
+
+            cl.enqueue_nd_range_kernel(cq, self.image_enc_reconstruct_kernel, vld.size, (1, 1, workgroup_size))
 
     def write(self, fd: io.IOBase):
         fd.write(struct.pack("iiiB", *self.hidden_size, self.recon_enabled))
