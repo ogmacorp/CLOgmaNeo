@@ -137,8 +137,10 @@ class Decoder:
                     np.array([vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1]], dtype=np.float32),
                     np.float32(1.0 / len(self.vls)), np.uint8(finish), np.float32(self.scale))
 
-            num_workgroups = self.hidden_size[2] // MAX_WORKGROUP_Z
-            workgroup_size = self.hidden_size[2] // max(1, num_workgroups)
+            workgroup_size = min(self.hidden_size[2], MAX_WORKGROUP_Z)
+
+            while self.hidden_size[2] % workgroup_size != 0:
+                workgroup_size -= 1
 
             cl.enqueue_nd_range_kernel(cq, self.decoder_activate_kernel, self.hidden_size, (1, 1, workgroup_size))
 
@@ -161,8 +163,10 @@ class Decoder:
                     np.array([vld.size[0] / self.hidden_size[0], vld.size[1] / self.hidden_size[1]], dtype=np.float32),
                     np.float32(self.lr))
 
-            num_workgroups = self.hidden_size[2] // MAX_WORKGROUP_Z
-            workgroup_size = self.hidden_size[2] // max(1, num_workgroups)
+            workgroup_size = min(self.hidden_size[2], MAX_WORKGROUP_Z)
+
+            while self.hidden_size[2] % workgroup_size != 0:
+                workgroup_size -= 1
 
             cl.enqueue_nd_range_kernel(cq, self.decoder_learn_kernel, self.hidden_size, (1, 1, workgroup_size))
 
