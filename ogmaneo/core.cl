@@ -456,6 +456,8 @@ __kernel void encoder_learn(
     float ratio = (float)(num_higher) / l_count;
 
     if (ratio <= active_ratio) {
+        float rate = (committed_flags[hidden_cell_index] ? lr : 1.0f);
+
         int weight_total_delta = 0;
 
         for (int ix = iter_lower_bound.x; ix <= iter_upper_bound.x; ix++)
@@ -472,11 +474,13 @@ __kernel void encoder_learn(
 
                 unsigned char weight_old = weights[wi];
 
-                weights[wi] = min(255, weights[wi] + (int)ceil(lr * (255.0f - weights[wi])));
+                weights[wi] = min(255, weights[wi] + (int)ceil(rate * (255.0f - weights[wi])));
 
                 weight_total_delta += weights[wi] - weight_old;
             }
 
         weight_totals[hidden_cell_index] += weight_total_delta;
+
+        committed_flags[hidden_cell_index] = 1;
     }
 }
