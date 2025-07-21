@@ -411,6 +411,9 @@ __kernel void encoder_learn(
     int2 hidden_column_pos = (int2)(get_global_id(0), get_global_id(1));
     int hidden_column_index = hidden_column_pos.y + hidden_size.y * hidden_column_pos.x;
 
+    if (!learn_flags[hidden_column_index])
+        return;
+
     // Project
     int2 visible_center = (int2)((hidden_column_pos.x + 0.5f) * h_to_v.x, (hidden_column_pos.y + 0.5f) * h_to_v.y);
 
