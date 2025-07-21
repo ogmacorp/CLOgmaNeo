@@ -370,7 +370,7 @@ __kernel void encoder_activate(
 
                 float complemented = accum - total_all + count_except;
                 float match = complemented / count_except; 
-                float activation = accum / (choice + counts_all[hidden_cell_index] - total_all);
+                float activation = complemented / (choice + counts_all[hidden_cell_index] - total_all);
 
                 if ((!committed_flags[hidden_cell_index] || match >= vigilance) && activation > max_activation) {
                     max_activation = activation;
